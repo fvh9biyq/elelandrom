@@ -52,10 +52,16 @@ ENEMY_LIST := ENEMY_COUNT+1;
  ENEMY_SPRITE := +6
  ; +6 スプライトパターン番号
  ; +7 色コード
- ENEMY_yMove := +8
- ; +8 yMove
- ENEMY_xMove := +9
- ; +9 xMove bit0　0=右向き,1=左向き
+ ENEMY_Move := +8
+ ; +8 Move 移動データ bit0　0=右向き,1=左向き
+ ENEMY_JumpCount := +9
+ ; +9 JumpCount
+ ;    0の時着地
+ ;    1～16　上2
+ ;    17～32　上1
+ ;    33～40　移動しない
+ ;    40～56　下1
+ ;    57～72　下2
  ; +10 yMax
  ENEMY_xMax := +11
  ; +11 xMax
@@ -194,7 +200,8 @@ MAIN::
 	call GAME_INIT ; 画面初期化
 loop:
 	call MOVE_PLAYER ;プレイヤー方向キーで移動
-	call MOVE_ENEMY ;敵移動
+	call MOVE_ENEMY ;敵移動処理
+	call JUMP_ENEMY ;敵JUMP処理
 	call CHECK_PLAYER_ATTACK ;プレイヤー攻撃判定
 	call CHECK_ENEMY ;敵処理
 	call CHECK_EVENT ;イベント確認
@@ -500,7 +507,7 @@ skip_jump:
 ENDSCOPE; MOVE_PLAYER
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; 敵　移動処理
+;;;; 敵移動処理
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SCOPE MOVE_ENEMY
 MOVE_ENEMY::
@@ -524,11 +531,23 @@ current_enemy:
 	or a,a
 	jr nz,next_enemy ;ダメージを受けている敵は移動＆足踏みしない
 
-	ld a,[ix+ENEMY_xMove-ENEMY_HP] ;xMove
+	ld a,[ix+ENEMY_Move-ENEMY_HP] ;Move
 	or a,a
-	jr z,next_enemy ;xMove=0は移動しない
+	jr z,next_enemy ;Move=0は移動しない
+	bit 2,a
+	jr z,not_jump
+
+	;ジャンプする
+	ld a,[ix+ENEMY_JumpCount-ENEMY_HP] ;ENEMY_JumpCount
+	or a,a
+	jr nz,next_enemy ;ジャンプ中
+	inc [ix+ENEMY_JumpCount-ENEMY_HP] ; ジャンプ開始
+	jr next_enemy
+not_jump:
+
+	and a,3
 	rra
-	jr nc,right ;xMoveのbit0が1の場合右向き 0の場合左向き
+	jr nc,right ;Moveのbit0が1の場合右向き 0の場合左向き
 	neg
 	add a,[ix+ENEMY_xPos-ENEMY_HP] ;X座標
 	cp a,[ix+ENEMY_xMin-ENEMY_HP] ;xMin
@@ -542,9 +561,9 @@ set_pos:
 	ld [ix+ENEMY_xPos-ENEMY_HP],a ;X座標
 	jr step_enemy
 turn:
-	ld a,[ix+ENEMY_xMove-ENEMY_HP] ;xMove
+	ld a,[ix+ENEMY_Move-ENEMY_HP] ;Move
 	xor a,1
-	ld [ix+ENEMY_xMove-ENEMY_HP],a ;xMove
+	ld [ix+ENEMY_Move-ENEMY_HP],a ;Move
 
 step_enemy:
 	;敵を足踏みさせる
@@ -555,7 +574,7 @@ step_enemy:
 	ld a,[ix+ENEMY_SPRITE -ENEMY_HP] ; パターン番号
 	xor a,2*4 ;足踏み
 	and a,255-4
-	bit 0,[ix+ENEMY_xMove -ENEMY_HP] ; Moveのbit0が1の場合右向き
+	bit 0,[ix+ENEMY_Move -ENEMY_HP] ; Moveのbit0が1の場合右向き
 	jr z,set_enemy_sprite
 	or a,4 ;スプライトパターン番号を左向きにする
 set_enemy_sprite:
@@ -573,7 +592,58 @@ next_enemy:
 set_enemy_index:
 	ld [hl],a
 	ret
-ENDSCOPE; CALC_PLAYER_STATUS
+ENDSCOPE; MOVE_ENEMY
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; 敵JUMP処理
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SCOPE JUMP_ENEMY
+JUMP_ENEMY::
+	ld ix,ENEMY_LIST
+	ld b,ENEMY_MAX_COUNT ;敵は最大4
+loop:
+	ld a,[ix+ENEMY_HP]
+	or a,a
+	jp z,next_enemy ;HP=0の敵は判定しない
+	ld a,[ix+ENEMY_DAMAGE_COUNT] ;ダメージカウント
+	or a,a
+	jr nz,next_enemy ;ダメージを受けている敵はJUMPしない
+	ld a,[ix+ENEMY_JumpCount] ;JumpCount
+	or a,a
+	jr z,next_enemy ;JumpCountが0の敵はJUMPしない
+	ld c,a
+	dec a
+	and a,0xf8
+	rrca
+	rrca
+	rrca
+	ld hl,enemy_jump_data
+	add a,l
+	ld l,a
+	ld a,h
+	adc a,0
+	ld h,a
+	ld a,[hl]
+	add a,[ix+ENEMY_yPos]
+	ld [ix+ENEMY_yPos],a
+
+	ld a,c
+	inc a
+	cp a,73
+	jr c,set_jumpcount
+	xor a,a
+set_jumpcount:
+	ld [ix+ENEMY_JumpCount],a
+next_enemy:
+	ld de,ENEMY_SIZE
+	add ix,de
+	djnz loop
+	ret
+enemy_jump_data:
+	DEFB -2,-2,-1,-1,0,+1,+1,+2,+2
+
+ENDSCOPE; JUMP_ENEMY
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; プレイヤー攻撃判定
@@ -601,7 +671,7 @@ set_attack_count:
 
 	;敵全員と攻撃判定
 	ld ix,ENEMY_LIST
-	ld b,4 ;敵は最大4
+	ld b,ENEMY_MAX_COUNT ;敵は最大4
 loop:
 	push bc
 	ld a,[ix+ENEMY_HP]
@@ -1569,8 +1639,8 @@ ENDSCOPE; CALC_PLAYER_STATUS
 ; 　　+5 X座標　スプライトX座標
 ; 　　+6 スプライトパターン番号　bit0　方向 0:右、1:左、bit1:足踏み
 ; 　　+7 色コード
-; 　　+8 yMove　高さの移動量　TODO
-; 　　+9 xMove　横移動量　bit0　0=右向き,1=左向き　bit1-7:移動量
+; 　　+8 Move　移動データ　bit0　0=右向き,1=左向き　bit1:1=横移動する　bit2:1=JUMPする
+; 　　+9 JumpCount
 ; 　　+10 yMax　y最大値
 ; 　　+11 xMax　x最大値
 ; 　　+12 yMin　y最小値

@@ -354,10 +354,16 @@ void MapManager::write(const char *mapTblFileName,const char *mapDataFileName,Ma
           ofs << "\tDEFB " << static_cast<int>(enemyData.x)*8+8 << " ;x" << std::endl;
           ofs << "\tDEFB " << (static_cast<int>(enemyData.sprite[0]) & 0xfc )*4 << " ;sprite" << std::endl; //元プラグラムとスプライトパターンの番号が異なる
           ofs << "\tDEFB " << static_cast<int>(enemyData.colorCode) << " ;colorCode" << std::endl;
-          int move = (127<enemyData.move ? -(enemyData.move-256) : enemyData.move)/8;
-          move = move*2+(127<enemyData.move ? 1 : 0);
-          ofs << "\tDEFB " << ( enemyData.y==enemyData.yMax ? 0 : move )<< " ;yMove" << std::endl;
-          ofs << "\tDEFB " << ( enemyData.x==enemyData.xMax ? 0 : move ) << " ;xMove" << std::endl;
+          int move{0};
+          if( enemyData.move==9 ){
+            //Jump
+            move=4;
+          }else
+          if( enemyData.move!=0 ){
+            move = 2+(127<enemyData.move ? 1 : 0);
+          }
+          ofs << "\tDEFB " << move << " ;Move" << std::endl;
+          ofs << "\tDEFB " << 0 << " ;JumpCount" << std::endl;
           ofs << "\tDEFB " << static_cast<int>(enemyData.yMax)*8-1 << " ;yMax" << std::endl;
           ofs << "\tDEFB " << static_cast<int>(enemyData.xMax)*8 << " ;xMax" << std::endl;
           ofs << "\tDEFB " << static_cast<int>(enemyData.y)*8-1 << " ;yMin" << std::endl;
