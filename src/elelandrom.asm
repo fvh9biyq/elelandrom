@@ -34,8 +34,8 @@ VIEW_CODE_AREA := 0xC000 ;キャラチップを入れておく　32*24の領域�
  VIEW_CODE_AREA_WIDTH := 32;
  VIEW_CODE_AREA_HEIGHT := 24;
 
-ENEMY_INDEX := VIEW_CODE_AREA+VIEW_CODE_AREA_WIDTH*VIEW_CODE_AREA_HEIGHT;敵移動用
-ENEMY_COUNT := ENEMY_INDEX+1;敵は1度に移動せず、1体ずつ順に移動する
+ENEMY_INDEX := VIEW_CODE_AREA+VIEW_CODE_AREA_WIDTH*VIEW_CODE_AREA_HEIGHT;敵移動用 敵は1度に移動せず、1体ずつ順に移動する
+ENEMY_COUNT := ENEMY_INDEX+1;画面上の敵最大数
 
 ENEMY_LIST := ENEMY_COUNT+1;
  ; +0 str
@@ -56,11 +56,11 @@ ENEMY_LIST := ENEMY_COUNT+1;
  ; +8 yMove
  ENEMY_xMove := +9
  ; +9 xMove bit0　0=右向き,1=左向き
- ENEMY_yMax := +10
  ; +10 yMax
+ ENEMY_xMax := +11
  ; +11 xMax
- ENEMY_yMin := +12
  ; +12 yMin
+ ENEMY_xMin := +13
  ; +13 xMin
  ENEMY_SIZE := 14
  ENEMY_MAX_COUNT := 4 ;敵は最大4
@@ -82,12 +82,19 @@ ATTACK_COUNT := JUMP_COUNT+1 ; 攻撃の状態
   ATTACK_COUNT_END := 33
   ;0、33の時　攻撃なし　スペースキーを押していれば1～33までの値
   ;スペースキーを離すと0に戻る
+GAME_SPEED := ATTACK_COUNT+1 ;ゲームの速さ
 
-WORK_H_TIMI_SAVE := ATTACK_COUNT+1; WORK_H_TIMIのコピー
+WORK_H_TIMI_SAVE := GAME_SPEED+1; WORK_H_TIMIのコピー
 GAME_CONTROLLER :=  WORK_H_TIMI_SAVE+WORK_H_TIMI_SIZE ;ゲーム処理
- ;bit0 1:MAPデータ書き込み
+ ;bit0 1:このマップで敵全滅した
  ;bit1 1:イベントでマップ移動した場合、15/60秒待つ
- ;bit2 1:このマップで敵全滅した
+ ;bit2 1:ダメージエフェクト
+
+ ;bit7 1:VRAM書き込み司令
+ ;bit6 1:スプライト書き込み
+ ;bit5 1:MAP欄
+ ;bit4 1:ステータス欄
+
 WAIT_COUNT := GAME_CONTROLLER+1 ;移動後、この時間待つ
 INTERVAL_TIMER := WAIT_COUNT+1 ;VSYNC毎にカウントアップされる
 BGM_COUNT := INTERVAL_TIMER+1; BGMのカウント
@@ -161,6 +168,23 @@ PLAYER_ATTACK_POINT::
 	DEFB 120;,120 ;レベル8
 	DEFB 150;,150 ;レベル9
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; BGM 音階
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+MUSICAL_SCALE::
+	DEFB 0xD6 ; O5C 0x01
+	DEFB 0xBE ; O5D 0x02
+	DEFB 0xAA ; O5E 0x03
+	DEFB 0x8F ; O5G 0x04
+	DEFB 0x7F ; O5A 0x05
+	DEFB 0x71 ; O5B 0x06
+	DEFB 0x6B ; O6C 0x07
+	DEFB 0x5F ; O6D 0x08
+	DEFB 0x55 ; O6E 0x09
+	DEFB 0x47 ; O6G 0x0a
+	DEFB 0x40 ; O6A 0x0b
+	DEFB 0x39 ; O6B 0x0c
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; メイン
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -170,27 +194,29 @@ MAIN::
 	call GAME_INIT ; 画面初期化
 loop:
 	call MOVE_PLAYER ;プレイヤー方向キーで移動
-	call SET_ATTACK_COUNT ;プレイヤー攻撃
+	call MOVE_ENEMY ;敵移動
+	call CHECK_PLAYER_ATTACK ;プレイヤー攻撃判定
 	call CHECK_ENEMY ;敵処理
 	call CHECK_EVENT ;イベント確認
 	call CHECK_MAPMOVE ;画面端でマップ移動していないかチェック
 
-	call PUT_SPRITE
-
 	ld  hl,GAME_CONTROLLER
-	bit 0,[hl]
-	jr z,skip_write_map
-	res 0,[hl]
-	call WRITE_VIEW_CODE_AREA
-skip_write_map:
+	set 6,[hl]
+	set 7,[hl] ;VRAM書き込み司令
 
-	ld  hl,GAME_CONTROLLER
+	bit 2,[hl]
+	jr z,skip_damage_effect
+	res 2,[hl]
+	call DAMAGE_EFFECT
+skip_damage_effect:
+
+	ld a,[GAME_SPEED] ;
 	bit 1,[hl]
-	jr z,skip_wait
+	jr z,do_wait
 	res 1,[hl]
 	ld a,15 ;イベントでマップ移動した場合、15/60秒待つ
+do_wait:
 	call WAIT
-skip_wait:
 
 	jr loop
 ;	call ENDING
@@ -212,7 +238,11 @@ TITLE::
 	ld [hl],a ;JUMP_COUNT
 	inc hl
 	ld [hl],a ;ATTACK_COUNT
+	inc a
+	inc hl
+	ld [hl],a ;GAME_SPEED
 
+	xor a,a
 	ld hl,PLAYER_ITEMS
 	ld [hl],a
 	ld de,PLAYER_ITEMS+1
@@ -227,7 +257,6 @@ TITLE::
 	inc hl
 	xor a,a
 	ld [hl],a
-	call PUT_SPRITE
 
 put_title:
 	call CLEAR_VIEW_CODE_AREA
@@ -236,7 +265,10 @@ put_title:
 put_text_loop:
 	call TEXT_COPY
 	djnz put_text_loop
-	call WRITE_VIEW_CODE_AREA
+
+	;VRAMに書き込み
+	ld a,0xf0
+	ld [GAME_CONTROLLER],a
 
 	call BIOS_KILBUF
 loop:
@@ -256,7 +288,10 @@ loop:
 input_passward_loop:
 	push hl
 	push bc
-	call WRITE_VIEW_CODE_AREA
+
+	;VRAMに書き込み
+	ld a,0xf0
+	ld [GAME_CONTROLLER],a
 no_input:
 	ld a,12
 	call WAIT ;一定時間待つ
@@ -338,7 +373,7 @@ GAME_INIT::
 	ld hl,PLAYER_Y
 	ld [hl],120
 
-	ld bc,BGM_DATA_MAIN
+	ld bc,BGM_DATA_CHEST
 	call SET_BGM_CURRENT
 
 	call CLEAR_VIEW_CODE_AREA
@@ -349,10 +384,9 @@ GAME_INIT::
 	inc hl
 	ld [hl],a
 	call PUT_STATUS
-	call WRITE_VIEW_CODE_AREA
 
-	;GAME_CONTROLLER 初期化
-	xor a,a
+	;VRAMに書き込み
+	ld a,0xf0
 	ld [GAME_CONTROLLER],a
 
 	ret
@@ -466,138 +500,177 @@ skip_jump:
 ENDSCOPE; MOVE_PLAYER
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; 攻撃
+;;;; 敵　移動処理
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE SET_ATTACK_COUNT
-SET_ATTACK_COUNT::
+SCOPE MOVE_ENEMY
+MOVE_ENEMY::
+	ld hl,ENEMY_INDEX
+	ld b,[hl]
+	inc b
+	ld hl,ENEMY_LIST+ENEMY_HP-ENEMY_SIZE
+	ld de,ENEMY_SIZE
+current_enemy:
+	add hl,de
+	djnz current_enemy
+
+	ld a,[hl]
+	or a,a
+	jr z,next_enemy ;HP=0の敵は移動しない
+
+	push hl
+	pop ix
+
+	ld a,[ix+ENEMY_DAMAGE_COUNT-ENEMY_HP] ;ENEMY_DAMAGE_COUNT
+	or a,a
+	jr nz,next_enemy ;ダメージを受けている敵は移動＆足踏みしない
+
+	ld a,[ix+ENEMY_xMove-ENEMY_HP] ;xMove
+	or a,a
+	jr z,next_enemy ;xMove=0は移動しない
+	rra
+	jr nc,right ;xMoveのbit0が1の場合右向き 0の場合左向き
+	neg
+	add a,[ix+ENEMY_xPos-ENEMY_HP] ;X座標
+	cp a,[ix+ENEMY_xMin-ENEMY_HP] ;xMin
+	ccf
+	jr set_pos
+right:
+	add a,[ix+ENEMY_xPos-ENEMY_HP] ;X座標
+	cp a,[ix+ENEMY_xMax-ENEMY_HP] ;xMax
+set_pos:
+	jr nc,turn
+	ld [ix+ENEMY_xPos-ENEMY_HP],a ;X座標
+	jr step_enemy
+turn:
+	ld a,[ix+ENEMY_xMove-ENEMY_HP] ;xMove
+	xor a,1
+	ld [ix+ENEMY_xMove-ENEMY_HP],a ;xMove
+
+step_enemy:
+	;敵を足踏みさせる
+	ld a,[ix+ENEMY_xPos -ENEMY_HP]
+	and a,0x07
+	cp a,04
+	jr nz,next_enemy
+	ld a,[ix+ENEMY_SPRITE -ENEMY_HP] ; パターン番号
+	xor a,2*4 ;足踏み
+	and a,255-4
+	bit 0,[ix+ENEMY_xMove -ENEMY_HP] ; Moveのbit0が1の場合右向き
+	jr z,set_enemy_sprite
+	or a,4 ;スプライトパターン番号を左向きにする
+set_enemy_sprite:
+	ld [ix+ENEMY_SPRITE -ENEMY_HP],a
+
+next_enemy:
+	ld hl,ENEMY_COUNT
+	ld b,[hl]
+	dec hl ;ENEMY_INDEX
+	ld a,[hl]
+	inc a
+	cp a,b
+	jr c,set_enemy_index
+	xor a,a
+set_enemy_index:
+	ld [hl],a
+	ret
+ENDSCOPE; CALC_PLAYER_STATUS
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; プレイヤー攻撃判定
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SCOPE CHECK_PLAYER_ATTACK
+CHECK_PLAYER_ATTACK::
 	call GTTRIG
 	ld hl,ATTACK_COUNT
 	ld a,[hl]
 	jr nz,attack
 	; スペースキーを押していなければ
 	xor a,a
-	jr set_a
+	jr set_attack_count
 attack:
 	; スペースキーを押していれば
 	inc a
 	cp a,ATTACK_COUNT_END
-	jr c,set_a
+	jr c,set_attack_count
 	ld a,ATTACK_COUNT_END
-set_a:
+set_attack_count:
 	ld [hl],a
-	ret
-ENDSCOPE; SET_ATTACK_COUNT
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; 敵移動
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE CHECK_ENEMY
-CHECK_ENEMY::
-	ld de,ENEMY_LIST+ENEMY_HP ;最初の敵のhp
-	ld a,[ENEMY_COUNT]
-	ld b,a
-loop:
-	ld a,[ENEMY_INDEX]
-	inc a
-	cp a,b
-	jr nz,skip_move
-	ld a,[de]
-	or a,a
-	jr z,skip_move
-
-	push de
-	pop ix
-	call MOVE_ENEMY;Y座標について
-	inc ix
-
-	ld a,[ix+ENEMY_DAMAGE_COUNT -ENEMY_HP-1] ;ダメージカウント
-	or a,a
-	jr z,skip_down_damage_count
-	;敵キャラにダメージがあれば横移動＆足踏みなし＆攻撃されない
-	dec [ix+ENEMY_DAMAGE_COUNT -ENEMY_HP-1]
-	jp skip_attack
-
-skip_down_damage_count:
-	call MOVE_ENEMY;X座標について
-
-	ld a,[ix+ENEMY_SPRITE -ENEMY_HP-1] ; パターン番号 (ixはhp+1の位置にある)
-	and a,255-4
-	bit 0,[ix+ENEMY_xMove -ENEMY_HP-1] ; xMove (ixはhp+1の位置にある)
-	jr z,right
-	or a,4 ;スプライトパターン番号を左向きにする
-right:
-	ld [ix+ENEMY_SPRITE -ENEMY_HP-1],a
-
-	;敵を足踏みさせる
-	ld a,[ix+ENEMY_xPos -ENEMY_HP-1]
-	and a,0x07
-	cp a,04
-	jr nz,skip_move
-	ld a,[ix+ENEMY_SPRITE -ENEMY_HP-1] ; パターン番号
-	xor a,2*4
-	ld [ix+ENEMY_SPRITE -ENEMY_HP-1],a
-skip_move:
 	call IS_ATTACK
-	jp nc,skip_attack
+	ret nc ;剣を出していない
+
+	;敵全員と攻撃判定
+	ld ix,ENEMY_LIST
+	ld b,4 ;敵は最大4
+loop:
+	push bc
+	ld a,[ix+ENEMY_HP]
+	or a,a
+	jp z,next_enemy ;HP=0の敵は判定しない
+	ld a,[ix+ENEMY_DAMAGE_COUNT] ;ダメージカウント
+	or a,a
+	jr nz,next_enemy ;ダメージを受けている敵は攻撃判定なし
 	; 剣の位置と敵の位置を比較し、ヒットしていればダメージを与える
 	ld hl,PLAYER_Y
 	ld a,[hl]
 	add a,11 ;剣の下部分
-	sub a,[ix+ENEMY_yPos -ENEMY_HP-1] ;敵yPosが剣の下部分より下ならヒットしない
-	jr c,skip_attack
+	sub a,[ix+ENEMY_yPos] ;敵yPosが剣の下部分より下ならヒットしない
+	jr c,next_enemy
 	cp a,5+16 ;剣の上部分 todoこの辺ちゃんと
-	jr nc,skip_attack
-	inc hl
+	jr nc,next_enemy
+	inc hl ;PLAYER_X
 	ld a,[hl]
-	inc hl
+	inc hl ;PLAYER_SPRITE
 	sub a,0
 	bit 2,[hl]
 	jr nz,left_attack
 	;右向き
 	add a,32+0
 left_attack:
-	sub a,[ix+ENEMY_xPos -ENEMY_HP-1] ;敵xPosが剣の右部分より右ならヒットしない
-	jr c,skip_attack
+	sub a,[ix+ENEMY_xPos] ;敵xPosが剣の右部分より右ならヒットしない
+	jr c,next_enemy
 	cp a,32
-	jr nc,skip_attack
-	;敵ダメージ処理
-	ld a,[ix+ENEMY_xPos -ENEMY_HP-1] ;敵吹っ飛ぶ
+	jr nc,next_enemy
+
+	 ;敵吹っ飛ぶ
+	ld a,[ix+ENEMY_xPos]
 	sub a,8
 	bit 2,[hl]
 	jr nz,left_knock_back
 	add a,16
 left_knock_back:
-	ld [ix+ENEMY_xPos -ENEMY_HP-1],a ;敵吹っ飛ぶ
+	ld [ix+ENEMY_xPos],a
 
 	ld a,3 ;敵無敵時間
-	ld [ix+ENEMY_DAMAGE_COUNT -ENEMY_HP-1],a
+	ld [ix+ENEMY_DAMAGE_COUNT],a
+
+	;ダメージエフェクト
+	ld  hl,GAME_CONTROLLER
+	set 2,[hl] ;DAMAGE_EFFECT
 
 	;敵HP減少
-	push hl
 	ld a,[PLAYER_LEVEL]
 	ld hl,PLAYER_ATTACK_POINT-1
 	add a,l
 	ld l,a
 	ld l,[hl]
-	ld a,[ix+ENEMY_HP -ENEMY_HP-1] ;
+	ld a,[ix+ENEMY_HP]
 	sub a,l
 	jr nc,set_hp
 	xor a,a
 set_hp:
-	ld [ix+ENEMY_HP -ENEMY_HP-1],a
+	ld [ix+ENEMY_HP],a
 
 	or a,a
 	jr nz,skip_enemy_hp0
 	;敵倒した
-	ld a,[ix+ENEMY_EXP -ENEMY_HP-1]
+	ld a,[ix+ENEMY_EXP]
 	ld hl,PLAYER_EXP
 	add a,[hl]
 	jr nc,set_exp
-	ld a,255
+	ld a,255 ;経験値は最大255
 set_exp:
 	ld [hl],a
-	push de
-	push bc
 	call CALC_PLAYER_STATUS
 	jr z,skip_levelup
 	;レベルアップ
@@ -608,46 +681,62 @@ set_exp:
 	ld bc,BGM_DATA_LEVELUP
 	call SET_BGM_CURRENT
 skip_levelup:
-	pop bc
-	pop de
 skip_enemy_hp0:
-	pop hl
 
 	;敵HP表示
-	push de
 	ld hl,VIEW_CODE_AREA+14+23*VIEW_CODE_AREA_WIDTH+1
 	xor a,a
 	ld [hl],a
 	dec hl
-	ld [hl],a
+	ld [hl],a ;予め0クリアしておく
 	push ix
 	pop de
-	dec de
+	inc de
+	inc de ;ENEMY_HP
 	call BYTE_TO_TEXT
-	call DAMAGE_EFFECT
-	;敵に当たると剣を引っ込める
-	ld a,ATTACK_COUNT_END
-	ld [ATTACK_COUNT],a
-	pop de
-skip_attack:
-	ld a,e
-	add a,ENEMY_SIZE
-	ld e,a
-;	djnz loop
+
+next_enemy:
+	ld de,ENEMY_SIZE
+	add ix,de
+	pop bc
 	dec b
 	jp nz,loop
 
-	;ENEMY_INDEX増加
-	ld hl,ENEMY_COUNT
-	ld b,[hl]
-	dec l
+	ret
+ENDSCOPE; CHECK_PLAYER_ATTACK
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; 剣を出しているかどうか
+;;;;   call IS_ATTACK
+;;;;   use a
+;;;;   剣を出している場合キャリーフラグが立つ
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SCOPE IS_ATTACK
+IS_ATTACK::
+	ld a,[ATTACK_COUNT]
+	dec a
+	cp a,ATTACK_COUNT_END-1
+	ret
+ENDSCOPE; IS_ATTACK
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; 敵処理残り
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SCOPE CHECK_ENEMY
+CHECK_ENEMY::
+	;敵　無敵（ダメージ）カウントダウン
+	ld hl,ENEMY_LIST+ENEMY_DAMAGE_COUNT
+	ld b,4
+	ld de,ENEMY_SIZE
+loop:
 	ld a,[hl]
-	inc a
-	cp a,b
-	jr c,set_enemy_index
-	xor a,a
-set_enemy_index:
+	or a,a
+	jr z,next_enemy
+	dec a
 	ld [hl],a
+next_enemy:
+	add hl,de
+	djnz loop
 	ret
 ENDSCOPE; CHECK_ENEMY
 
@@ -700,16 +789,15 @@ SKIP_EVENT::
 
 	;敵全滅時の処理
 	ld hl,GAME_CONTROLLER
-	bit 2,[hl]
+	bit 0,[hl]
 	ret nz ;既に全滅している
 	call ISNOENEMY
 	ret nz ;全滅していない
-	set 2,[hl]
+	set 0,[hl]
 	call SET_MAPDATA_ONLY
 
 	ret
 ENDSCOPE; CHECK_EVENT
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; 敵が全滅していれば
@@ -789,7 +877,7 @@ map_max:
 
 MAP_MOVE::
 	ld hl,GAME_CONTROLLER
-	res 2,[hl] ;全滅フラグを消す
+	res 0,[hl] ;全滅フラグを消す
 	call SET_MAPDATA
 	jr not_right
 
@@ -804,7 +892,6 @@ not_right:
 	ret
 
 ENDSCOPE ;CHECK_MAPMOVE
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; 画面領域クリア 
@@ -1085,204 +1172,12 @@ not_invisible_wall:
 
 skip_invisible_wall:
 
+	;map書き込み
 	ld hl,GAME_CONTROLLER
-	set 0,[hl]
+	set 5,[hl]
 
 	ret
 ENDSCOPE; SET_MAPDATA
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; BGM 音階
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-MUSICAL_SCALE::
-	DEFB 0xD6 ; O5C 0x01
-	DEFB 0xBE ; O5D 0x02
-	DEFB 0xAA ; O5E 0x03
-	DEFB 0x8F ; O5G 0x04
-	DEFB 0x7F ; O5A 0x05
-	DEFB 0x71 ; O5B 0x06
-	DEFB 0x6B ; O6C 0x07
-	DEFB 0x5F ; O6D 0x08
-	DEFB 0x55 ; O6E 0x09
-	DEFB 0x47 ; O6G 0x0a
-	DEFB 0x40 ; O6A 0x0b
-	DEFB 0x39 ; O6B 0x0c
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; BGMデータセット
-;;;;   bc:BGMデータ先頭
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE SET_BGM_CURRENT
-SET_BGM_CURRENT::
-	di
-	push hl
-	ld hl,BGM_COUNT
-	ld [hl],1
-	inc hl
-	ld [hl],c
-	inc hl
-	ld [hl],b
-	inc hl
-	ld [hl],13
-	inc hl
-	ld [hl],15
-	pop hl
-	ei
-ENDSCOPE; SET_BGM_CURRENT
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; VSYNC割り込み処理
-;;;;   WAIT_COUNTが0になるまでカウントダウン
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE VSYNC
-VSYNC_START::
-	di
-	push af
-	push hl
-	ld hl,WAIT_COUNT
-	ld a,[hl]
-	or a,a
-	jr z,skip_wait_count
-	dec [hl]
-skip_wait_count:
-	inc hl ; INTERVAL_TIMER
-	inc [hl]
-
-	inc hl ; BGM_COUNT
-	ld a,[hl]
-	or a,a
-	jp z,skip_bgm_count
-	dec a
-	ld [hl],a
-	jp nz,skip_bgm_count
-
-	;BGM処理
-	inc hl
-	push bc
-	push de
-	ld c,[hl]
-	inc hl
-	ld b,[hl]
-	dec hl
-next_bgm_command:
-	ld a,[bc]
-	inc bc
-	cp a,0xf0
-	jr c,bgm_keyon ;00-ef
-	jr z,bgm_set_tempo ;0xf0
-	cp a,0xf2
-	jr c,bgm_set_volume ;0xf1
-	jr z,bgm_set_envelope ;0xf2
-	cp a,0xf4
-	jr c,bgm_set_main ;0xf3
-	;0xf4 bgm off
-	ld e,0
-	ld a,8
-	call BIOS_WRTPSG
-	jr end_bgm_count
-bgm_set_main:
-	ld bc,BGM_DATA_MAIN
-	call SET_BGM_CURRENT
-	jr end_bgm_count
-bgm_set_volume:
-	inc hl
-bgm_set_tempo:
-	inc hl
-	inc hl
-	ld a,[bc]
-	inc bc
-	ld [hl],a
-	ld hl,BGM_CURRENT
-	jr next_bgm_command
-bgm_set_envelope:
-	;次の2バイトをR11、R12の順に書き込む
-	ld a,[bc]
-	inc bc
-	ld e,a
-	ld a,11
-	call BIOS_WRTPSG
-	ld a,[bc]
-	inc bc
-	ld e,a
-	ld a,12
-	call BIOS_WRTPSG
-	jr next_bgm_command
-
-bgm_keyon:
-	;00-ef
-	ld d,a
-	and a,0x0f
-	jr nz,bgm_keyon_1
-	;休符
-	ld e,0
-	jr bgm_keyon_2
-bgm_keyon_1:
-	ld hl,MUSICAL_SCALE-1
-	add a,l
-	ld l,a
-	ld e,[hl]
-	xor a,a
-	call BIOS_WRTPSG ;音階を指定
-	ld a,13
-	ld e,8
-	call BIOS_WRTPSG ;エンベロープを指定する事でエンベロープをリセット
-	ld hl,BGM_VOLUME
-	ld e,[hl]
-	ld hl,BGM_CURRENT
-bgm_keyon_2:
-	ld a,8
-	call BIOS_WRTPSG ;音量を指定
-	inc hl
-	inc hl
-	ld e,[hl]
-	ld a,d
-	and a,0xf0
-	jr z,set_bgm_count
-bgm_tempo_double:
-	sla e
-	sub a,0x10
-	jr nz,bgm_tempo_double
-set_bgm_count:
-	dec hl
-	ld [hl],b
-	dec hl
-	ld [hl],c
-	dec hl
-	ld [hl],e
-end_bgm_count:
-	pop de
-	pop bc
-skip_bgm_count:
-
-	pop hl
-	pop af
-	ei
-	jp WORK_H_TIMI_SAVE
-ENDSCOPE ;VSYNC
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; WAITサブルーチン WAIT_COUNTが0になるまで待つ
-;;;;   call WAIT
-;;;;   in a:Aレジスタの値だけ待つ
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE WAIT
-	;wait
-WAIT::
-	push hl
-	push af
-	ld hl,WAIT_COUNT
-	ld [hl],a
-	ei
-wait_loop:
-	ld a,[hl]
-	or a,a
-	jr nz,wait_loop
-skip_wait:
-	pop af
-	pop hl
-	ret
-ENDSCOPE; WAIT
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; ダメージ音声
@@ -1290,12 +1185,15 @@ ENDSCOPE; WAIT
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SCOPE DAMAGE_EFFECT
 DAMAGE_EFFECT::
-	push bc
-	push de
 	push hl
 
-	call PUT_SPRITE
 	call PUT_STATUS
+	ld  hl,GAME_CONTROLLER
+	set 6,[hl]
+	set 4,[hl]
+	set 7,[hl]
+	ld a,1
+	call WAIT
 
 	ld a,9
 	ld e,15
@@ -1328,140 +1226,14 @@ loop_2:
 	ld a,9
 	ld e,0
 	call BIOS_WRTPSG
+
+	;敵に当たると剣を引っ込める
+	ld a,ATTACK_COUNT_END
+	ld [ATTACK_COUNT],a
+
 	pop hl
-	pop de
-	pop bc
 	ret
 ENDSCOPE; DAMAGE_EFFECT
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; SET_3LINE VRAMの上中下段それぞれにデータを書き込み
-;;;;   call SET_3LINE
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE SET_3LINE
-SET_3LINE::
-	ld a,03
-loop:
-	push af
-	push hl
-	push bc
-	push de
-	call BIOS_LDIRVM
-	pop de
-	ld a,8
-	add a,d
-	ld d,a
-	pop bc
-	pop hl
-	pop af
-	dec a
-	jr nz,loop
-	ret
-ENDSCOPE; SET_3LINE
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; WRITE_VIEW_CODE_AREA
-;;;;  VIEW_CODE_AREA の内容をVRAMに書き込む
-;;;;   call WRITE_VIEW_CODE_AREA
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE WRITE_VIEW_CODE_AREA
-WRITE_VIEW_CODE_AREA::
-	ld hl,VIEW_CODE_AREA
-	ld de,0x1800
-	ld bc,VIEW_CODE_AREA_WIDTH*VIEW_CODE_AREA_HEIGHT
-	call BIOS_LDIRVM
-	ret
-ENDSCOPE; WRITE_VIEW_CODE_AREA
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; PUT_SPRITE
-;;;;  SPRITE内容をVRAMに書き込む
-;;;;   call PUT_SPRITE
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE PUT_SPRITE
-PUT_SPRITE::
-	ld hl,0x1b00
-	call BIOS_SETWRT
-	ld a,1
-	call WAIT;ちらつき防止のため、vsync割り込みを待つ
-	ld a,[VIDEO_WRITE_PORT]
-	ld c,a
-	;プレイヤーのスプライト1を出力
-	ld hl,PLAYER_Y
-	ld b,3
-	otir
-	ld a,7
-	out [c],a
-
-	;プレイヤーのスプライト2を出力
-	ld hl,PLAYER_Y
-	ld b,2
-	otir
-	ld a,[hl]
-	add a,4*4
-	out [c],a
-	ld a,11
-	out [c],a
-
-	call IS_ATTACK
-	jr nc,skip_sword
-	;剣のスプライトを出力
-	ld hl,PLAYER_Y
-	outi
-	ld a,[hl]
-	inc hl
-	add a,0x10 ;剣のX座標はプレイヤーが左右どちらに向いていてもプレイヤー+16
-	out [c],a
-	ld a,[hl]
-	and a,4   ;[PLAYER_SPRITE]　and 4　が0なら右 1なら左
-	ld de,0x0000
-	jr z,right
-	ld de,0x8004
-right:
-	ld a,24*4 ;剣のスプライト
-	add a,e
-	out [c],a
-	ld a,15
-	or a,d
-	out [c],a ;画面端で剣を出した際に表示されるように左向きの場合、カラーコードのbit7をセットする
-
-skip_sword:
-	ld hl,ENEMY_LIST +ENEMY_HP ;敵データ最初のhp
-	ld d,ENEMY_MAX_COUNT
-
-put_enemy:
-	ld e,ENEMY_SIZE-1-3-1 ;hpが0でない場合にhlに加算する値
-	ld a,[hl]
-	inc hl
-	or a,a
-	jr z,skip_enemy
-	ld a,[hl]
-	inc hl
-	ld b,3
-	otir
-	ld b,[hl]
-	or a,a
-	jr z,skip_enemy_damage
-	ld b,8
-skip_enemy_damage:
-	out [c],b
-	jr next_enemy
-skip_enemy:
-	ld e,ENEMY_SIZE-1 ;hpが0の場合にhlに加算する値
-next_enemy:
-	;ENEMY_LISTは0xC300から始まるので下位バイトのみ加算
-	ld a,e
-	add a,l
-	ld l,a
-	dec d
-	jr nz,put_enemy
-
-	;これ以降のスプライトは表示しない
-	ld a,NO_SPRITE_Y
-	out [c],a
-
-	ret
-ENDSCOPE; PUT_SPRITE
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; GTTRIG
@@ -1519,177 +1291,6 @@ loop:
 ENDSCOPE; TEXT_COPY
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; 16進数の1文字を0から15の数値にする
-;;;;   in hl 入力アドレス
-;;;;   out キャリーフラグが立っているとデータNG
-;;;;       キャリーフラグが立っていないならデータOK
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE HEXTOBIN
-HEXTOBIN::
-	ld a,[hl]
-	inc hl
-	sub a,0x30 ;キャラクターコードが'0'より下ならNG
-	ret c
-	cp a,10
-	ccf
-	ret nc     ;キャラクターコードが'0'から'9'ならその値を返す
-	add a,0x100-0x47+0x30  ;キャラクターコードが'G'以上ならNG
-	ret c
-	sub a,-6
-	ret c
-	add a,10
-	ret
-ENDSCOPE; HEXTOBIN
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; 16進数の1文字を0から15の数値にする
-;;;;   in hl 入力アドレス
-;;;;   in de 出力アドレス
-;;;;   out キャリーフラグが立っているとデータNG
-;;;;       キャリーフラグが立っていないならデータOK
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE HEXTOBIN2
-HEXTOBIN2::
-	call HEXTOBIN
-	ret c
-	add a,a
-	add a,a
-	add a,a
-	add a,a
-	ld b,a
-	call HEXTOBIN
-	ret c
-	or a,b
-	ret
-ENDSCOPE; HEXTOBIN2
-
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; パスワードのチェック
-;;;;   in hl パスワード入力アドレス
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-PASSWARD_MAXSIZE = 13 ;パスワードの入力は最後のリターンキー含めて最大13文字
-SCOPE PASSWORD_CHECK
-PASSWORD_CHECK::
-	ex de,hl
-	ld hl,debug_code
-debug_code_next:
-	push de
-	ld a,[hl]
-	inc hl
-	or a,a
-	jr z,debug_code_end
-	ld c,a
-	ld b,a
-debug_code_loop:
-	ld a,[de]
-	inc de
-	cp a,[hl]
-	inc hl
-	jr nz,debug_code_mismatch
-	dec c
-debug_code_mismatch:
-	djnz debug_code_loop
-	ld a,c
-	or a,a
-	jr z,debug_code_match
-	inc hl
-	inc hl
-	pop de
-	jr debug_code_next
-debug_code_match:
-	ld c,[hl]
-	inc hl
-	ld b,[hl]
-	push bc
-	ret ;jump_debug_code_xxx
-debug_code_end:
-	pop de
-	ex de,hl
-	call HEXTOBIN ;最初の1文字はレベル(値チェックのみして実際には反映しない)
-	ret c
-	call HEXTOBIN2 ;次の2文字はHP
-	ret c
-	ld d,a
-	call HEXTOBIN2 ;次の2文字はEX
-	ret c
-	ld e,a
-	ld bc,0x700
-loop:
-	ld a,[hl]
-	inc hl
-	cp a,0x32 ;キャラクターコードが'1'より上ならNG
-	ccf
-	ret c
-	cp a,0x30 ;キャラクターコードが'0'より下ならNG
-	ret c
-	jr z,not_set_item ;キャラクターコードが'1'ならアイテムフラグON
-	inc c
-not_set_item:
-	sla c
-	djnz loop
-	ld hl,PLAYER_ITEMS
-	ld [hl],c
-	inc hl
-	ld [hl],e
-	ld hl,PLAYER_HP
-	ld [hl],d
-	ret
-
-debug_code_map:
-	ld a,[de]
-	sub a,'A'
-	cp a,12
-	jr nc,debug_code_end
-	ld [MAP_ID],a
-	jr debug_code_end
-
-debug_code_msxcolor:
-	ld b,15
-	ld hl,debug_code_msxcolor_data
-debug_code_msxcolor_loop:
-	ld d,b
-	ld a,[hl]
-	inc hl
-	ld e,[hl]
-	inc hl
-	push hl
-	push bc
-	ld ix,SUBROM_SETPLT
-	call BIOS_EXTROM
-	pop bc
-	pop hl
-	djnz debug_code_msxcolor_loop
-	jr debug_code_end
-debug_code_msxcolor_data:
-	DEFB 0x77, 0x007; 0xffffff
-	DEFB 0x66, 0x006; 0xcccccc
-	DEFB 0x55, 0x003; 0xb766b5
-	DEFB 0x12, 0x005; 0x3aa241
-	DEFB 0x64, 0x006; 0xded087
-	DEFB 0x62, 0x006; 0xccc35e
-	DEFB 0x73, 0x004; 0xff897d
-	DEFB 0x62, 0x003; 0xdb6559
-	DEFB 0x37, 0x006; 0x65dbef
-	DEFB 0x52, 0x002; 0xb95e51
-	DEFB 0x47, 0x003; 0x8076f1
-	DEFB 0x27, 0x002; 0x5955e0
-	DEFB 0x33, 0x006; 0x74d07d
-	DEFB 0x12, 0x005; 0x3eb849
-	DEFB 0x00, 0x000; 0x000000
-
-debug_code:
-	DEFB 3
-	DEFS "MAP"
-	DEFW debug_code_map
-	DEFB 8
-	DEFS "MSXCOLOR"
-	DEFW debug_code_msxcolor
-	DEFB 0 ; end of debug_code
-
-ENDSCOPE; PASSWORD_CHECK
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; 1バイトのデータを10進テキストにして指定アドレスにコピー
 ;;;;   in de コピー元データ
 ;;;;      hl コピー先アドレス
@@ -1732,11 +1333,12 @@ ENDSCOPE; BYTE_TO_TEXT
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; CLEAR_STATUS_AREA
 ;;;;   ステータス表示区域のクリア 画面左端からE.HPまでクリア
+;;;;   in bc:クリア文字数
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SCOPE CLEAR_STATUS_AREA
 CLEAR_STATUS_AREA::
 	ld hl,VIEW_CODE_AREA+22*VIEW_CODE_AREA_WIDTH
-	ld bc,17
+;	ld bc,17
 	push bc
 	call CLEAR_AREA
 	ld hl,VIEW_CODE_AREA+23*VIEW_CODE_AREA_WIDTH
@@ -1747,10 +1349,13 @@ ENDSCOPE; CLEAR_STATUS_AREA
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; PUT_STATUS
-;;;;   ステータス表示
+;;;;   ステータスをVRAMのエリアに展開
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SCOPE PUT_STATUS
 PUT_STATUS::
+	ld bc,14
+	call CLEAR_STATUS_AREA
+
 	ld hl,text_status
 	ld b,3
 put_text_loop:
@@ -1803,7 +1408,9 @@ status_loop:
 	pop hl
 	djnz status_loop
 
-	call WRITE_STATUS_AREA
+	ld  hl,GAME_CONTROLLER
+	set 4,[hl]
+
 	ret
 text_status:
 	DEFW VIEW_CODE_AREA+0+22*VIEW_CODE_AREA_WIDTH
@@ -1823,19 +1430,6 @@ status_text_pos:
 	DEFB 3+22*VIEW_CODE_AREA_WIDTH-16*VIEW_CODE_AREA_WIDTH;HP
 
 ENDSCOPE; PUT_STATUS
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; WRITE_STATUS_AREA
-;;;;   ステータス表示
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE WRITE_STATUS_AREA
-WRITE_STATUS_AREA::
-	ld hl,VIEW_CODE_AREA+22*VIEW_CODE_AREA_WIDTH
-	ld de,0x1800+22*VIEW_CODE_AREA_WIDTH
-	ld bc,VIEW_CODE_AREA_WIDTH*(VIEW_CODE_AREA_HEIGHT-22)
-	call BIOS_LDIRVM
-	ret
-ENDSCOPE; WRITE_STATUS_AREA
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; IS_BLOCK
@@ -1941,391 +1535,8 @@ exp_tbl:
 	DEFB 5,15,30,50,75,105,140,180,225,255
 ENDSCOPE; CALC_PLAYER_STATUS
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; 敵　移動
-;;;;   call MOVE_ENEMY
-;;;;   ixはENEMY_HP（またはENEMY_HP+1）
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE MOVE_ENEMY
-MOVE_ENEMY::
-	ld a,[ix+ENEMY_yMove-ENEMY_HP] ;yMove(xMove)
-	or a,a
-	ret z
-	rra
-	jr nc,right
-	neg
-	add a,[ix+ENEMY_yPos-ENEMY_HP] ;Y座標(X座標)
-	cp a,[ix+ENEMY_yMin-ENEMY_HP] ;yMin(xMin)
-	ccf
-	jr set_pos
-right:
-	add a,[ix+ENEMY_yPos-ENEMY_HP] ;Y座標(X座標)
-	cp a,[ix+ENEMY_yMax-ENEMY_HP] ;yMax(xMax)
-set_pos:
-	jr nc,turn
-	ld [ix+ENEMY_yPos-ENEMY_HP],a ;Y座標(X座標)
-	ret
-turn:
-	ld a,[ix+ENEMY_yMove-ENEMY_HP] ;yMove(xMove)
-	xor a,1
-	ld [ix+ENEMY_yMove-ENEMY_HP],a ;yMove(xMove)
-	ret
-ENDSCOPE; MOVE_ENEMY
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; 剣を出しているかどうか
-;;;;   call IS_ATTACK
-;;;;   use a
-;;;;   剣を出している場合キャリーフラグが立つ、
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE IS_ATTACK
-IS_ATTACK::
-	ld a,[ATTACK_COUNT]
-	dec a
-	cp a,ATTACK_COUNT_END-1
-	ret
-ENDSCOPE; IS_ATTACK
 
 
-
-SCOPE EVENT_PASSWORD
-EVENT_PASSWORD::
-	ld hl,text_password
-	call TEXT_COPY
-	ld hl,VIEW_CODE_AREA+0+23*VIEW_CODE_AREA_WIDTH
-	ld de,PLAYER_LEVEL
-	ld a,[de]
-	call PUT_HEX4
-	inc de
-	inc de
-	ld a,[de]  ;PLAYER_HP
-	call PUT_HEX8
-	ld de,PLAYER_EXP
-	ld a,[de]
-	call PUT_HEX8
-	dec de ;PLAYER_ITEMS
-	ld a,[de]
-	ld c,a
-	ld b,7
-loop:
-	ld a,'0'
-	sla c
-	adc a,0
-	ld [hl],a
-	inc hl
-	djnz loop
-
-	call WRITE_STATUS_AREA
-	jp SKIP_EVENT
-text_password:
-	DEFW VIEW_CODE_AREA+0+22*VIEW_CODE_AREA_WIDTH
-	DEFS "PASS WORD"
-	DEFB 0
-
-ENDSCOPE ;EVENT_PASSWORD
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; PUT_HEX4
-;;;; aレジスタ下位4ビットを16進にしてhlアドレスに書き込む
-;;;; in a:出力データ hl:出力メモリアドレス
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE PUT_HEX4
-PUT_HEX4::
-	and a,0x0f
-	cp a,10
-	sbc a,0x69
-	daa
-	ld [hl],a
-	inc hl
-	ret
-ENDSCOPE ;PUT_HEX4
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; PUT_HEX8
-;;;; aレジスタを16進にしてhlアドレスに書き込む
-;;;; in a:出力データ hl:出力メモリアドレス
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE PUT_HEX8
-PUT_HEX8::
-	push af
-	rrca
-	rrca
-	rrca
-	rrca
-	call PUT_HEX4
-	pop af
-	call PUT_HEX4
-	ret
-ENDSCOPE ;PUT_HEX8
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; アスキーコード91~113のパターン
-;;;;   1780行と1790行のデータ
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-CHAR_91_PATTERN_START::
-	DEFB 0xff,0xfc,0xe3,0x80,0xb8,0xc4,0xa2,0xa9 ;91
-	DEFB 0xea,0xba,0xee,0xba,0xee,0xfa,0xfc,0xff ;92
-	DEFB 0xff,0x03,0x31,0x88,0x44,0x23,0x1c,0xe3 ;93
-	DEFB 0x1c,0xf7,0x1e,0xf4,0x17,0x1f,0x7f,0xff ;94
-	DEFB 0x10,0x10,0x30,0xff,0x01,0x01,0x03,0xff ;95
-	DEFB 0x3c,0x76,0x5f,0xef,0x7e,0x9f,0xd6,0x7f ;96
-	DEFB 0xdf,0x7f,0x01,0x74,0xba,0x10,0x10,0x18 ;97
-	DEFB 0x0f,0x3f,0x7f,0xcf,0x9f,0xbf,0xff,0xbf ;98
-	DEFB 0xbf,0xff,0x26,0x7e,0x63,0xcf,0xe6,0x7f ;99
-	DEFB 0xf0,0xfc,0xfe,0x5c,0x8e,0xd6,0xea,0xe8 ;100
-	DEFB 0xd0,0xf5,0xed,0x99,0x31,0xc3,0x07,0xfe ;101
-	DEFB 0x00,0x7c,0xfe,0x7c,0x00,0xe3,0xf7,0xe3 ;102
-	DEFB 0x7e,0xff,0xfd,0x7f,0xfd,0xf9,0xf3,0x7e ;103
-	DEFB 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00 ;104
-	DEFB 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00 ;105
-	DEFB 0x39,0xc6,0xc6,0x00,0x00,0x30,0x48,0x00 ;106
-	DEFB 0x00,0x00,0x00,0x00,0x99,0xff,0xff,0x66 ;107
-	DEFB 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00 ;108
-	DEFB 0x0f,0x3f,0x7f,0xe6,0x59,0xff,0x7e,0xb8 ;109
-	DEFB 0x7e,0x76,0x7f,0xed,0x3f,0x03,0x01,0x01 ;110
-	DEFB 0xf0,0xfc,0xfe,0xdf,0x3e,0x67,0x8f,0xfe ;111
-	DEFB 0x73,0xf4,0xbe,0xff,0xec,0xc0,0x80,0x80 ;112
-	DEFB 0x0f,0x3f,0x7f,0xe6,0x59,0xff,0x7e,0xb8 ;113
-CHAR_91_PATTERN_END::
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; アスキーコード91~113の色
-;;;;   1800行と1810行のデータ
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-CHAR_91_COLOR_START::
-	DEFB 0x1f,0x1f,0x1a,0x1f,0x1a,0x1a,0x1a,0x1a ;91
-	DEFB 0x18,0x1a,0x1a,0x18,0x1a,0x1a,0x1a,0x1f ;92
-	DEFB 0x1f,0x1f,0x1a,0x1f,0x1f,0x1a,0x1a,0x1b ;93
-	DEFB 0x1b,0x1b,0x1a,0x1a,0x18,0x1b,0x1a,0x1f ;94
-	DEFB 0x19,0x1d,0x1d,0x1d,0x19,0x1d,0x1d,0x1d ;95
-	DEFB 0x34,0x34,0xc4,0xc2,0xc2,0xc2,0xc2,0xc2 ;96
-	DEFB 0xc2,0xc2,0x1c,0x1c,0x14,0x64,0x64,0x64 ;97
-	DEFB 0x81,0x81,0x81,0x89,0x89,0x89,0x88,0x89 ;98
-	DEFB 0x89,0x88,0x86,0x66,0x16,0x61,0x61,0x61 ;99
-	DEFB 0x81,0x81,0x81,0x86,0x86,0x86,0x86,0x86 ;100
-	DEFB 0x86,0x61,0x61,0x61,0x61,0x81,0x61,0x61 ;101
-	DEFB 0x41,0x51,0x41,0x41,0x41,0x51,0x41,0x41 ;102
-	DEFB 0xf1,0xe1,0xe1,0xe1,0xe1,0xe1,0xe1,0xe1 ;103
-	DEFB 0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11 ;104
-	DEFB 0x44,0x44,0x44,0x44,0x44,0x44,0x44,0x44 ;105
-	DEFB 0xf7,0xf5,0x57,0xf7,0xf7,0xf7,0xf7,0xf7 ;106
-	DEFB 0xf7,0xf7,0xf7,0xf7,0xf7,0xf7,0xf7,0xf7 ;107
-	DEFB 0xf7,0xf7,0xf7,0xf7,0xf7,0xf7,0xf7,0xf7 ;108
-	DEFB 0x34,0x34,0x34,0x32,0x32,0x32,0x3c,0x3c ;109
-	DEFB 0x32,0x3c,0xc2,0x1c,0x14,0x64,0x64,0x64 ;110
-	DEFB 0xc4,0xc4,0xc4,0xc2,0xc2,0xc2,0xc2,0xc1 ;111
-	DEFB 0xc2,0xc1,0x12,0x1c,0x14,0x14,0x14,0x14 ;112
-	DEFB 0x34,0x34,0x34,0x32,0x32,0x32,0x3c,0x3c ;113
-CHAR_91_COLOR_END:
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; アスキーコード88~245のパターン
-;;;;   1820行から1860行までのデータ
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-CHAR_188_PATTERN_START::
-	DEFB 0x1f,0x20,0x5f,0x5d,0x5d,0x50,0x5d,0x5d ;188
-	DEFB 0x2d,0x37,0x18,0x0f,0x00,0x00,0x00,0x00 ;189
-	DEFB 0xc0,0x20,0xd0,0xd0,0xd0,0x50,0xd0,0xd0 ;190
-	DEFB 0xa0,0x60,0xc0,0x80,0x00,0x00,0x00,0x00 ;191
-	DEFB 0x00,0x60,0x70,0x38,0x1c,0x0e,0x07,0x03 ;192
-	DEFB 0x01,0x02,0x00,0x00,0x00,0x00,0x00,0x00 ;193
-	DEFB 0x00,0x00,0x00,0x00,0x00,0x00,0x40,0x80 ;194
-	DEFB 0xc0,0xe0,0x70,0x30,0x00,0x00,0x00,0x00 ;195
-	DEFB 0x08,0x5c,0x38,0x10,0x08,0x04,0x02,0x01 ;196
-	DEFB 0x00,0x01,0x01,0x00,0x00,0x00,0x00,0x00 ;197
-	DEFB 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x60 ;198
-	DEFB 0x90,0x10,0x20,0xc0,0x00,0x00,0x00,0x00 ;199
-	DEFB 0x07,0x08,0x1f,0x7f,0x17,0x2f,0x2f,0x2f ;200
-	DEFB 0x2f,0x17,0x0f,0x1f,0x00,0x00,0x00,0x00 ;201
-	DEFB 0x00,0x80,0xc0,0xf0,0x40,0xa0,0xa0,0xa0 ;202
-	DEFB 0xa0,0x40,0x80,0xc0,0x00,0x00,0x00,0x00 ;203
-	DEFB 0x00,0x01,0x03,0x01,0x09,0x1f,0x3e,0x5f ;204
-	DEFB 0x2f,0x16,0x0c,0x00,0x00,0x00,0x00,0x00 ;205
-	DEFB 0xc0,0xa0,0xd0,0xe8,0xf0,0x60,0x80,0x60 ;206
-	DEFB 0x70,0x38,0x1c,0x08,0x00,0x00,0x00,0x00 ;207
-	DEFB 0x00,0x00,0x00,0x00,0x04,0x9f,0x5f,0x5f ;208
-	DEFB 0x3f,0x1f,0x0e,0x1f,0x00,0x00,0x00,0x00 ;209
-	DEFB 0x00,0x00,0x00,0x00,0x70,0xd0,0x90,0xd0 ;210
-	DEFB 0x60,0x00,0x00,0x00,0x00,0x00,0x00,0x00 ;211
-	DEFB 0x03,0x07,0x07,0x07,0x03,0x07,0x07,0x07 ;212
-	DEFB 0x07,0x07,0x07,0x05,0x05,0x05,0x02,0x02 ;213
-	DEFB 0x00,0x80,0x80,0x80,0x80,0x7e,0xfc,0xf8 ;214
-	DEFB 0x60,0x70,0x38,0x1c,0x0c,0x00,0x80,0x80 ;215
-	DEFB 0x3f,0x7f,0xe0,0xce,0x9e,0xbe,0xbe,0xbe ;216
-	DEFB 0xbe,0xba,0xba,0xbe,0xbe,0xbe,0xbe,0xbe ;217
-	DEFB 0xfc,0xfe,0x07,0xf3,0xf9,0xfd,0xfd,0xfd ;218
-	DEFB 0xfd,0xdd,0xdd,0xfd,0xfd,0xfd,0xfd,0xfd ;219
-	DEFB 0xff,0xfb,0xf3,0xe3,0xc3,0x83,0x83,0x81 ;220
-	DEFB 0x07,0x0f,0x1f,0x1f,0x3f,0x3f,0x7f,0x7f ;221
-	DEFB 0xcf,0x8f,0x1f,0x1e,0x08,0x00,0x00,0x80 ;222
-	DEFB 0xc4,0x84,0x80,0x40,0x45,0x63,0x23,0x10 ;223
-	DEFB 0xf3,0xf1,0xf8,0x78,0x10,0x00,0x00,0x01 ;224
-	DEFB 0x23,0x21,0x01,0x02,0xa2,0xc6,0xc4,0x08 ;225
-	DEFB 0xff,0xdf,0xcf,0xc7,0xc3,0xc1,0xc1,0x81 ;236
-	DEFB 0xe0,0xf0,0xf8,0xf8,0xfc,0xfc,0xfe,0xfe ;227
-	DEFB 0x81,0x01,0x02,0x02,0x02,0x81,0x81,0x55 ;228
-	DEFB 0x2a,0x80,0x80,0xc0,0xc0,0x80,0x80,0xa4 ;239
-	DEFB 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00 ;230
-	DEFB 0x00,0x00,0x00,0x00,0x00,0x00,0x10,0x98 ;231
-	DEFB 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00 ;232
-	DEFB 0x00,0x00,0x00,0x00,0x00,0x00,0x08,0x19 ;233
-	DEFB 0x81,0x80,0x40,0x40,0x40,0x81,0x81,0xaa ;234
-	DEFB 0x54,0x01,0x01,0x03,0x03,0x01,0x01,0x25 ;235
-	DEFB 0xf0,0xc0,0x7f,0x7f,0xff,0xff,0x87,0x62 ;236
-	DEFB 0x00,0x09,0x9f,0xe7,0x80,0xc0,0xf0,0xff ;237
-	DEFB 0xf0,0xfc,0xfe,0xfe,0xff,0xff,0xff,0x9c ;238
-	DEFB 0x38,0x61,0xf0,0x80,0x01,0x03,0xf0,0x00 ;239
-	DEFB 0x00,0xc6,0x00,0x00,0x00,0x00,0x00,0x00 ;240
-	DEFB 0x00,0x00,0x20,0x00,0x00,0x04,0x00,0x00 ;241
-	DEFB 0x7e,0x7f,0x3f,0x00,0xf3,0xf3,0xc3,0x00 ;242
-	DEFB 0x57,0x57,0x57,0x57,0x57,0x57,0x57,0x57 ;243
-	DEFB 0xea,0xea,0xea,0xea,0xea,0xea,0xea,0xea ;244
-	DEFB 0xff,0xff,0x00,0x7e,0xff,0xff,0xff,0x00 ;245
-CHAR_188_PATTERN_END::
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; アスキーコード88~245の色
-;;;;   1870行から1910行までのデータ
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-CHAR_188_COLOR_START:
-	DEFB 0xf1,0x71,0x51,0x51,0x51,0x41,0x51,0x51 ;188
-	DEFB 0x41,0x51,0x41,0x41,0xf1,0xf1,0xf1,0xf1 ;189
-	DEFB 0xf1,0x51,0x51,0x51,0x41,0x41,0x51,0x41 ;190
-	DEFB 0x41,0x51,0x41,0x41,0xf1,0xf1,0xf1,0xf1 ;191
-	DEFB 0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0x41,0xe1 ;192
-	DEFB 0xd1,0xd1,0xf1,0xf1,0xf1,0xf1,0xf1,0xf1 ;193
-	DEFB 0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xd1,0xd1 ;194
-	DEFB 0x61,0x61,0x61,0x61,0x61,0xf1,0xf1,0xf1 ;195
-	DEFB 0xf1,0xf1,0xb1,0xa1,0xa1,0xa1,0xa1,0xa1 ;196
-	DEFB 0xa1,0xa1,0xa1,0xf1,0xf1,0xf1,0xf1,0xf1 ;197
-	DEFB 0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xa1,0xb1 ;198
-	DEFB 0xf1,0xa1,0xa1,0x61,0xf1,0xf1,0xf1,0xf1 ;199
-	DEFB 0xe1,0xe1,0x91,0xd1,0xf1,0xf1,0xf1,0xf1 ;200
-	DEFB 0x91,0xa1,0x91,0xd1,0xf1,0xf1,0xf1,0xf1 ;201
-	DEFB 0xe1,0xe1,0x91,0xd1,0xf1,0xf1,0xe1,0xe1 ;202
-	DEFB 0x91,0xa1,0x91,0xd1,0xf1,0xf1,0xf1,0xf1 ;203
-	DEFB 0xf1,0xf1,0xa1,0xa1,0xa1,0xa1,0xa1,0xa1 ;204
-	DEFB 0xa1,0x91,0xd1,0xf1,0xf1,0xf1,0xf1,0xf1 ;205
-	DEFB 0xf1,0xb1,0xa1,0xa1,0xa1,0x91,0xa1,0x61 ;206
-	DEFB 0x61,0x61,0x61,0x61,0xf1,0xf1,0xf1,0xf1 ;207
-	DEFB 0xf1,0xf1,0xf1,0xf1,0xd1,0xf1,0xa1,0xa1 ;208
-	DEFB 0xa1,0xa1,0xa1,0xe1,0xf1,0xf1,0xf1,0xf1 ;209
-	DEFB 0xf1,0xf1,0xf1,0xa1,0xa1,0xa1,0xa1,0xa1 ;210
-	DEFB 0xa1,0xa1,0xa1,0xe1,0xf1,0xf1,0xf1,0xf1 ;211
-	DEFB 0x81,0x81,0xb1,0xb1,0xb1,0x71,0x71,0x71 ;212
-	DEFB 0xf1,0xf1,0xf1,0xb1,0xb1,0xb1,0xb1,0xb1 ;213
-	DEFB 0xf1,0x81,0x81,0x81,0x81,0xf1,0xf1,0xf1 ;214
-	DEFB 0xf1,0xf1,0xf1,0xf1,0xf1,0xf1,0xb1,0xb1 ;215
-	DEFB 0x91,0x61,0x61,0x91,0x81,0x61,0x81,0x81 ;216
-	DEFB 0x61,0x81,0x81,0x61,0x61,0x61,0x61,0x81 ;217
-	DEFB 0x91,0x61,0x61,0x91,0x81,0x61,0x81,0x81 ;218
-	DEFB 0x61,0x81,0x81,0x61,0x61,0x61,0x61,0x81 ;219
-	DEFB 0x16,0x1d,0x1d,0x16,0x18,0x18,0x18,0x18 ;220
-	DEFB 0xf8,0xf8,0xf8,0xf8,0xf8,0xf8,0xf6,0xf6 ;221
-	DEFB 0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f ;222
-	DEFB 0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f ;223
-	DEFB 0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f ;224
-	DEFB 0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f ;225
-	DEFB 0x16,0x1d,0x1d,0x16,0x18,0x18,0x18,0x18 ;226
-	DEFB 0xf8,0xf8,0xf8,0xf8,0xf8,0xf8,0xf6,0xf6 ;227
-	DEFB 0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f ;228
-	DEFB 0xdf,0x6f,0x6f,0x6f,0x6f,0x6f,0x6f,0xdf ;229
-	DEFB 0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f ;230
-	DEFB 0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f ;231
-	DEFB 0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f ;232
-	DEFB 0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f ;233
-	DEFB 0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f,0x1f ;234
-	DEFB 0xdf,0x6f,0x6f,0x6f,0x6f,0x6f,0x6f,0xdf ;235
-	DEFB 0x4f,0x4f,0xf5,0xfe,0xfe,0xfe,0xfe,0xfe ;236
-	DEFB 0xfe,0xfe,0xfe,0xfe,0x5e,0x5e,0x4e,0x4e ;237
-	DEFB 0xf4,0xf4,0xf5,0xfe,0xfe,0xfe,0xfe,0xfe ;238
-	DEFB 0xfe,0xfe,0xfe,0xfe,0x5e,0x5e,0xe4,0xe4 ;239
-	DEFB 0x23,0x23,0x22,0x22,0x22,0x22,0x22,0x22 ;240
-	DEFB 0x22,0x22,0x32,0x22,0x22,0x32,0x22,0x22 ;241
-	DEFB 0xfe,0xfe,0xfe,0x1e,0xfe,0xfe,0xfe,0xee ;242
-	DEFB 0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe ;243
-	DEFB 0xe1,0xe1,0xe1,0xe1,0xe1,0xe1,0xe1,0xe1 ;244
-	DEFB 0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe,0xfe ;245
-CHAR_188_COLOR_END::
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; スプライトパターン
-;;;;   元プログラム
-;;;;     0:プレイヤー鎧1右,1:プレイヤー鎧1左
-;;;;     2:プレイヤー鎧2右,3:プレイヤー鎧2左
-;;;;     4:プレイヤー肌1右,5:プレイヤー肌1左
-;;;;     6:プレイヤー肌2右,7:プレイヤー肌2左
-;;;;     8:剣右,9:剣左
-;;;;     10:オオカミ1右,11:オオカミ1左
-;;;;     12:オオカミ2右,13:オオカミ2左
-;;;;     14:ガイコツ1右,15:ガイコツ1左
-;;;;     16:ガイコツ2右,17:ガイコツ2左
-;;;;     18:スライム1,19:スライム2
-;;;;     20:コウモリ1,21:コウモリ2
-;;;;   このプログラム(bit0が0=右,1=左 bit1が0=歩行パターン1,1=歩行パターン2)
-;;;;     0:プレイヤー鎧1右,1:プレイヤー鎧1左
-;;;;     2:プレイヤー鎧2右,3:プレイヤー鎧2左
-;;;;     4:プレイヤー肌1右,5:プレイヤー肌1左
-;;;;     6:プレイヤー肌2右,7:プレイヤー肌2左
-;;;;     8:オオカミ1右,9:オオカミ1左
-;;;;     10:オオカミ2右,11:オオカミ2左
-;;;;     12:ガイコツ1右,13:ガイコツ1左
-;;;;     14:ガイコツ2右,15:ガイコツ2左
-;;;;     16:スライム1右,17:スライム1左
-;;;;     18:スライム2右,19:スライム2左
-;;;;     20:コウモリ1右,21:コウモリ1左
-;;;;     22:コウモリ2右,23:コウモリ2左
-;;;;     24:剣右,25:剣左
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SPRITE_START::
-	DEFB 0x0f,0x0f,0x07,0x22,0x34,0x3c,0x18,0x06,0x16,0x17,0x0f,0x14,0x1c,0x07,0x0f,0x0f,0xc0,0xe0,0xf8,0x00,0x00,0x00,0x00,0x00,0xe0,0x70,0x70,0xa0,0xd0,0x80,0xe0,0xf0 ;プレイヤー鎧1
-	DEFB 0x00,0x0f,0x0f,0x07,0x02,0x34,0x3c,0x18,0x06,0x0d,0x1d,0x0d,0x12,0x29,0x3e,0x1f,0x00,0xc0,0xe0,0xf8,0x00,0x00,0x00,0x00,0x00,0xe0,0xf0,0x30,0x26,0xde,0x3c,0x38 ;プレイヤー鎧2
-	DEFB 0x60,0x70,0x38,0x1c,0x09,0x01,0x01,0x01,0x00,0x00,0x00,0x03,0x03,0x00,0x00,0x00,0x20,0x10,0x00,0x70,0xd0,0xd8,0xf0,0xe0,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00 ;プレイヤー肌1
-	DEFB 0x00,0x00,0xe0,0xf8,0x3c,0x09,0x01,0x01,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x20,0x10,0x00,0x70,0xd0,0xd8,0xf0,0xe0,0x00,0x00,0xc0,0xc0,0x00,0x00,0x00 ;プレイヤー肌2
-	DEFB 0x00,0x1c,0x3f,0x7f,0x3f,0x7b,0x3b,0x7f,0x7f,0x3f,0xd0,0xbf,0x5b,0x23,0x1f,0x1d,0x00,0xc0,0xe0,0xf0,0xf0,0xb0,0xb0,0xf8,0xf8,0xf0,0x00,0xe0,0xe8,0xe8,0xe0,0xc0 ;オオカミ1
-	DEFB 0x00,0x0e,0x1f,0x3f,0x1f,0x3d,0x1d,0x3f,0x3f,0x1f,0x88,0xdf,0xeb,0x57,0x0f,0x1c,0x00,0x60,0xf0,0xf8,0xf8,0xd8,0xd8,0xfc,0xfc,0xf8,0x00,0xf0,0xf4,0xf0,0xe0,0x38 ;オオカミ2
-	DEFB 0x3f,0x7f,0x7f,0x7e,0x7e,0x7f,0x3f,0x02,0x78,0xcd,0xfd,0xfd,0xcd,0x78,0x02,0x02,0xe0,0xf0,0xf0,0xd0,0xd0,0xf4,0xf4,0xa8,0x08,0x90,0xb0,0xa0,0x80,0x80,0x40,0x40 ;ガイコツ1
-	DEFB 0x00,0x1f,0x3f,0x3f,0x3f,0x3f,0x03,0x3d,0x67,0x7e,0x7e,0x66,0x3c,0x02,0x0c,0x18,0x00,0xf0,0xf8,0xf8,0x68,0x68,0xf9,0xf2,0x54,0x08,0xb0,0xc0,0x80,0xc0,0x30,0x18 ;ガイコツ2
-	DEFB 0x00,0x00,0x00,0x00,0x00,0x00,0x0f,0x3f,0x7f,0xff,0xff,0xff,0xff,0xff,0xfe,0x7c,0x00,0x00,0x00,0x00,0x00,0x00,0xf0,0xfc,0xfe,0xff,0xff,0xff,0xff,0xff,0x7f,0x3e ;スライム1
-	DEFB 0x00,0x00,0x00,0x00,0x00,0x38,0x7c,0xfc,0xfe,0xff,0xff,0xff,0xff,0x7f,0x3f,0x0f,0x00,0x00,0x00,0x00,0x00,0x1c,0x3e,0x3f,0x7f,0xff,0xff,0xff,0xff,0xfe,0xfc,0xf0 ;スライム2
-	DEFB 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x06,0x1c,0x7c,0xfc,0xee,0xc7,0x87,0x83,0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xc0,0x70,0x7c,0x7c,0xee,0xc6,0xc2,0x82,0x00 ;コウモリ1
-	DEFB 0x00,0x04,0x06,0x2e,0x3f,0x3f,0x37,0x73,0x61,0x60,0x40,0x40,0x00,0x00,0x00,0x00,0x00,0x40,0xc0,0xe8,0xf8,0xf8,0xd8,0x9c,0x0c,0x0c,0x04,0x04,0x00,0x00,0x00,0x00 ;コウモリ2
-	DEFB 0x00,0x00,0x00,0x00,0x00,0x00,0x4f,0x5f,0xb0,0x5f,0x4f,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0xe0,0xfc,0x3f,0xfc,0xe0,0x00,0x00,0x00,0x00,0x00 ;剣
-SPRITE_END::
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; BGMデータ
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;メインBGM
-BGM_DATA_MAIN::
-	DEFB 0xf0,16 ;テンポ指定
-	DEFB 0xf1,16 ;ボリューム指定
-	DEFB 0xf2 ;エンベロープ指定
-	DEFW 8000
-	DEFB 0x01,0x00,0x03,0x04,0x02,0x01,0x01,0x00,0x03,0x01,0x03,0x00
-	DEFB 0x07,0x00,0x09,0x0a,0x08,0x07,0x07,0x00,0x09,0x07,0x09,0x00
-	DEFB 0xf3
-
-;宝箱を取った時のBGM
-BGM_DATA_CHEST::
-	DEFB 0xf0,4 ;テンポ指定
-	DEFB 0xf1,16 ;ボリューム指定
-	DEFB 0xf2 ;エンベロープ指定
-	DEFW 9000
-	DEFB 0x0a,0x0b,0x3c,0x30
-	DEFB 0xf3
-
-;レベルアップBGM
-BGM_DATA_LEVELUP::
-	DEFB 0xf0,6 ;テンポ指定
-	DEFB 0xf1,15 ;ボリューム指定
-	DEFB 0x07,0x06,0x05,0x04,0x20,0x06,0x20,0x37,0x30
-	DEFB 0xf3
-
-;クリアBGM
-BGM_DATA_CLEAR::
-	DEFB 0xf0,6 ;テンポ指定
-	DEFB 0xf1,15 ;ボリューム指定
-	DEFB 0x07,0x06,0x05,0x04,0x20,0x06,0x05,0x04,0x20,0x06,0x05,0x04,0x06,0x20,0x37
-	DEFB 0xf4
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; マップデータ
@@ -2364,281 +1575,13 @@ BGM_DATA_CLEAR::
 ; 　　+11 xMax　x最大値
 ; 　　+12 yMin　y最小値
 ; 　　+13 xMin　x最小値
-
-
 include "build/src/map.map.data"
 
+include "src/vsync.inc"
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; システム　初期化
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE SYSTEM_INIT
-default_color:
-	DEFB 15,1,1
-SYSTEM_INIT::
-	ld sp,[WORK_HIMEM]
-	di
-	; 画面の色を変える
-	ld hl,default_color
-	ld de,MSXWORK_FORCLR
-	ld bc,3
-	ldir
-	ld a,01
-	call BIOS_CHGCLR
+include "src/password.inc"
 
-	;画面をSCREEN1に　VDP のみを GRAPHIC2にする
-	call BIOS_INIT32
-	call BIOS_SETGRP
-
-	; スクリーンモード2 プライトを初期化
-	ld a,2
-	ld [MSXWORK_SCRMOD],a
-	call BIOS_CLRSPR
-
-	;画面表示の禁止
-	call BIOS_DISSCR
-
-SCOPE FONT_ZERO_FULL
-	;画面を0で埋める
-	xor a,a
-	ld [WORK_CLIKSW],a ;キークリックスイッチもOFFにしておく
-
-	ld hl,0x1800
-	ld bc,VIEW_CODE_AREA_WIDTH*VIEW_CODE_AREA_HEIGHT
-	call BIOS_FILVRM
-	; 空欄をVRAMに転送
-	xor a,a
-	ld bc,256*8*3
-	ld hl,0
-	call BIOS_FILVRM
-	; デフォルフォントカラーを白黒にする
-	ld a,0xf1
-	ld bc,256*8*3
-	ld hl,0x2000
-	call BIOS_FILVRM
-ENDSCOPE ; FONT_ZERO_FULL
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; フォントを太字にする
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE BOLD_FONT
-	ld hl,[FONT_ADD]
-	inc h ; 32*8
-	ld bc,59*8
-	ld de,FREE_AREA
-font_loop:
-	ld a,[hl]
-	rrca
-	or a,[hl]
-	ld [de],a
-	inc hl
-	inc de
-	dec bc
-	ld a,c
-	or a,b
-	jr nz,font_loop
-
-	;VRAMに転送
-	ld hl,FREE_AREA
-	ld de,32*8
-	ld bc,59*8
-	call SET_3LINE
-ENDSCOPE ; BOLD_FONT
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; PCG アスキーコード91~113、114~117、188~245の形(絵)、色変更
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE SET_CHAR
-	ld hl,CHAR_91_PATTERN_START
-	ld de,91*8
-	ld bc,CHAR_91_PATTERN_END-CHAR_91_PATTERN_START
-	call SET_3LINE
-
-	ld hl,CHAR_91_COLOR_START
-	ld de,91*8+0x2000
-	ld bc,CHAR_91_COLOR_END-CHAR_91_COLOR_START
-	call SET_3LINE
-
-	ld hl,CHAR_188_PATTERN_START
-	ld de,188*8
-	ld bc,CHAR_188_PATTERN_END-CHAR_188_PATTERN_START
-	call SET_3LINE
-
-	ld hl,CHAR_188_COLOR_START
-	ld de,188*8+0x2000
-	ld bc,CHAR_188_COLOR_END-CHAR_188_COLOR_START
-	call SET_3LINE
-ENDSCOPE ; SET_CHAR
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; スプライトアトリビュート・テーブル初期化
-;;;;  Y座標FREE_AREA　他0　のデータで埋める
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE CLEAR_SPRITE
-	ld hl,FREE_AREA+3
-	xor a,a
-	ld [hl],a ;+3
-	dec hl
-	ld [hl],a ;+2
-	dec hl
-	ld [hl],a ;+1
-	dec hl
-	ld [hl],NO_SPRITE_Y ;+0
-	ld de,FREE_AREA+4
-	ld bc,4*31
-	ldir
-
-	ld hl,FREE_AREA
-	ld de,0x1b00
-	ld bc,4*32
-	call BIOS_LDIRVM
-
-ENDSCOPE ; CLEAR_SPRITE
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; スプライト設定
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE SET_SPRITE
-	;SPRITE_STARTからSPRITE_ENDまでのデータを反転させる
-	ld hl,FREE_AREA
-	ld de,SPRITE_START
-	ld bc,SPRITE_END-SPRITE_START
-loop:
-	ld a,[de]
-	push bc
-	ld b,8
-reverse:
-	rlca
-	rr c
-	djnz reverse
-	ld [hl],c
-	inc de
-	inc hl
-	pop bc
-	dec bc
-	ld a,b
-	or a,c
-	jr nz,loop
-
-	ld b,(SPRITE_END-SPRITE_START)/32
-	ld hl,FREE_AREA
-	ld de,FREE_AREA+16
-loop1:
-	push bc
-	ld b,16
-loop2:
-	ld a,[de]
-	ld c,[hl]
-	ex de,hl
-	ld [de],a
-	ld [hl],c
-	ex de,hl
-	inc hl
-	inc de
-	djnz loop2
-	;de=de+a
-	ld a,16
-	add a,e
-	ld e,a
-	adc a,d
-	sub a,e
-	ld d,a
-
-	;hl=hl+a
-	ld a,16
-	add a,l
-	ld l,a
-	adc a,h
-	sub a,l
-	ld h,a
-
-	pop bc
-	djnz loop1
-
-	;VRAMにスプライトデータと反転データを書き込む
-	ld hl,SPRITE_START
-	ld de,0x3800
-	ld c,2
-loop_a0:
-	ld b,(SPRITE_END-SPRITE_START)/32
-loop_a1:
-	push bc
-	push hl
-	push de
-	ld bc,32
-	call BIOS_LDIRVM
-	pop de
-	pop hl
-
-	;de=de+a
-	ld a,64
-	add a,e
-	ld e,a
-	adc a,d
-	sub a,e
-	ld d,a
-
-	;hl=hl+a
-	ld a,32
-	add a,l
-	ld l,a
-	adc a,h
-	sub a,l
-	ld h,a
-
-	pop bc
-	djnz loop_a1
-	ld hl,FREE_AREA
-	ld de,0x3800+32
-	dec c
-	jr nz,loop_a0
-
-ENDSCOPE ; SET_SPRITE
-
-	di
-	ld hl,WORK_H_TIMI+WORK_H_TIMI_SIZE-1
-	ld de,WORK_H_TIMI_SAVE+WORK_H_TIMI_SIZE-1
-	ld bc,WORK_H_TIMI_SIZE
-	lddr
-	inc hl
-	ld [hl],0xc3 ;z80 JP code
-	inc hl
-	ld [hl],VSYNC_START % 256
-	inc hl
-	ld [hl],VSYNC_START / 256
-
-	;PSG初期化
-	ld a,1
-	ld e,0
-	call BIOS_WRTPSG
-	ld a,7
-	ld e,0xbc ;Tone A&B Enable
-	call BIOS_WRTPSG
-	ld a,8
-	ld e,0
-	call BIOS_WRTPSG
-	ld a,9
-	call BIOS_WRTPSG
-	;bgm初期化
-	xor a,a
-	ld [BGM_COUNT],a
-
-	;画面の表示
-	;スプライト
-	ld a,[MSXWORK_RG1SAV]
-	or a,0x62
-	; 00000000
-	; .x...... 0:画面表示OFF 1:画面表示ON
-	; ..x..... 1=垂直割り込み有効, 0=無効
-	; ......x. 0:スプライト8x8 1:スプライト16x16
-	ld b,a
-	ld c,0x01 ; vdp#1に 00100010を書き込む
-	call BIOS_WRTVDP
-	ei
-
-	;タイトル画面へ
-	jp MAIN
-ENDSCOPE ; SYSTEM_INIT
+include "src/system_init.inc"
 
 
 _MAXSIZE:: ;最大サイズ
