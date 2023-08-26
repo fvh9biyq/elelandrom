@@ -1,0 +1,4 @@
+build/
+!build/elelandrom.rom
+zma.log
+zma.sym

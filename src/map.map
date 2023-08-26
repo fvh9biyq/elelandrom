@@ -1,0 +1,145 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;title MAP_ID 00 スタート
+;map
+iiiiiiふほふほiiiiiiiiiiふほふほふほiiiiiiiiiiiiへまへまiiiiiiiiiiへまへまへまiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiふほふほふほふほiiiiiiiiふほふほふほふほiiiiiiiiへまへまへまへまふほふほふほふほへまへまへまへまふほふほふほふほiiiiiiiiへまへまへまへまiiiiiiiiへまへまへまへま
+iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiゆゆゆゆゆゆiiiiii
+iiiiiiiiiiiiiiiiiiゆゆもやもやもやiiiiiiiiiiiiiiggggiiiiiiもやもやもやもや`````ii`imoi``guug``iiiiもやもやもやもやaaaaaiiainpiaaguugaaゆゆゆゆゆゆゆゆゆゆゆゆみみみみみみみみみみみみみみみみみみみみむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむむ
+;enemy
+218160718191819+828160F0201,06120718191819+808120F0201
+;event
+27,16,none,NO_ITEM,Password
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;title MAP_ID 01 スタート右　滝
+;map
+iiiiiiiikkkkiiiiiiiiiiiiiiiiiiiiiiiiiiiikkkkiiiiiiiiiiiiiiiiiiiiiiiiiiiikkkkiiiiiiiiiiiiiiiiiiiiiiiiiiiikkkkiiiiiiiiiiiiiiiiiiiiiiiiiiiikkkkiiiiiiiiiiiiiiiiiiiiふほふほiiiikkkkiiiiふほふほiiiiiiiiiiiiへまへまiiiikkkkiiiiへまへまiiiiiiiii
+iiiiiiiiゆゆゆkkkkiiiiiiiiiiiiiiiiiiiiiiiiiiiikkkkiiiiiiiiiiiiiiiiiiiiiiiiiiiikkkkiiゆゆゆiiiiiiiiiiiiiiiiiiiiiiikkkkiiiiiiiiiiiiiiiiiiiiiiiiiiiikkkkiiiiiiiiiiiiiiiiiiiiiiiiiiiikkkkiiiiiiiiiiiiiiiiiiiiiiiiiiiikkkkiiiiiiiiiiiiiiiiiiiiiiiiiiiikkkkiii
+iiiiiiiiiiiiiiiiiiiiiiiiikkkkiiiiiiiiiiiiiiiiiiiiii`i`iiikkkkiiiiiiiiiiiii`iiiiiiiiaiaiiikkkkiiiiiiiiiiiiiaiiiiiiみみみみみみiikkkkiiiiiiiiiiiiiみみii`iiむむむむむむjjkkkkjjjjjjjjjjjjjむむみiaiiむむむむむむみlkkkklllllみみみみみみみみむむむみみみみむむむむむむむみkkkkみみみみみむむむむむむむむむむむむむむむ
+;enemy
+217170718191819+823170F0201,13070718191819+816070F0201
+;event
+5,5,chest,LAMP,GetItem
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;title MAP_ID 02 スタート右２
+;map
+iiiiiiiiiiiiqoiiiiiiiiiiiiiiiiiiiiiiiiiiiiiinpiiiiiiiiiiiiiiiiiiiiiiiiiゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆiiiiiiiiiiiiもやfffffffffffffffもやiiiiiiiiiiiiiもやfffffffffffffffもやiiiiiiiiiiiiiもやfffffffffffffffもやゆゆiiiiiiiiiiiもやffゆゆゆゆゆゆゆゆゆゆゆffもやゆゆiii
+iiiiiiiiもやffffffffもやfffffもやiiiiiiiiiiiiiもやffffffffもやfffffもやiiiiiiiiiiiiiもやffffffffもやfffffもやiiみみみiiiiiiiiもやゆゆゆゆffゆゆもやffゆゆゆもやiiむむむiiiiiiiiもやffffffffもやfffffもやiiiiiiiiiiiiiもやffffffffもやfffffもやiiiiiiiiiiiiiもやffffffffもやfffffもやiiiiiiiiiiiiiもやffゆゆゆゆゆゆ
+ゆゆゆゆゆffゆゆiiiiiiiiiiiiiもやffもやfffffffもやffffiiiiiiiiiggggもやffもやfffffffもやffff`````iiiigrsgもやffもやfffffffもやffffaaaaaimoigssgもやffゆゆffゆゆfffゆゆゆゆゆゆみみみみみinpiみみみみもやffffffもやfffffffもやむむむむむみみみみむむむむもやffffffもやfffffffもやむむむむむむむむむむむむゆゆゆゆゆゆゆゆゆゆゆゆゆゆffffゆゆゆむむむむ
+;enemy
+112040610121113+82104D03A0A
+;event
+5,17,door,KEY,Warp 1 2 25 4
+12,0,none,SWORD,GetItem
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;title MAP_ID 03 スタート左　崖
+;map
+iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiふほふほふほふほふほふほふほふほふほふほふほiiiiiiiiiiへまへまへまへまへまへまへまへまへまへまへまiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii
+iiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiみみみみみみみみみみみみiiiiiiiiiiiiiiiiiiiiみみみみみみみみみみみみiiiiiiiiiiiiiiiiiiiiiiiiiiむむむむむむiiiiiiiiiiiiiiiiiiiiiiiiiiiiむむむむiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiむむiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiむむiiiiii
+iiiiiiiiiiiiiiiiiiiiiiiiむむiififiiiiiifみみみみiiiiimoimomoiiむむffffffiiiiifむむむむむi``inpinpnpiiむむffffffffiiffむむむむむiaaみみみみみみみみffむむffffffffffffむむむむむむみみむむむむむむむむffむffffffffffffffむむむむむむむむむむむむむむむffffffffffffffffffffffむむむむむむむむむむfffffffffffffffffffffffむ
+;enemy
+224130718191819+826130F0201,03160118191819-80616D40F0F
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;title MAP_ID 04 スタート下　コウモリ
+;map
+めめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめhhhhhhhhhhhhめめめめめめめめめめめめめめめめhhhhhffffffffffhhhhhめめめめめめめめめめhhhffffffffffffffffffhhhめめめめめめめhhffffffffffffffffffffffhhめめめ
+めめhhffffffffffffffffffffffffhhめめめhhffffffffffffffffffffffffffhhめめhffffffffffffffffffffffffffffhめめhffffffffffffffffffffffffffffhめhhffffffffffffffffffffffffffffhhhffffffffffffiffiffifffffffffffhhffffffffffifiiiiiiffffffffffffh
+ffffffffffffiiggggiiiffゆゆfffffffffffffffffffiigrsgiifffもやffffffffffゆゆffffffiiigssgiiiffもやffffffffffもやfffffめめめめめめめめめめめめめめめめめめめめめめfffもやffffffめめめめめめめめめめめめめめめめめめめめめfffもやffffffffめめめめめめffffffffffffffffもやffffffffめめめめめめfffffffffffff
+めめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめ
+;enemy
+317180120212021+82618140303,04140120212021+81614140303,16110120212021-83011140303
+;event
+20,18,chest,KEY,GetItem
+15,14,door,KEY,Warp 1 2 17 4
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;title MAP_ID 05 スタート下右　カラースライム
+;map
+めめめめめめめめkkkkめめめめめめめめめめめめめめめめめめめめめめめめめめめめkkkkめめめめめめめめめめめめめめめめめめめめめめめfffffkkkkffffffffffめめめめめめめめめめめめffffffkkkkfffffffffffffiffiゆゆめめめffffffkkkkfffffffffffffffffもやめめめffめめめめめkkめめめめめfffffffffffffもやめ
+めめffffゆゆkkkkfffffffffffffffffもやめめめffffもやkkkkffffffffffffiiifiもやめめめffffもやkkkkffffffめめめめfffiiifもやめめfffffもやkkkkfiffffffffffififfもやめffffffもやkkkkfffffffffffffffifもやめffffffもやkkkkffiiffffffめめめめめめめもやめffffffもやkkkkffffiiiffffffffffもやめ
+ffffffもやkkkkiiffffiiiffffffffもやめffffffもやkkkめめめめめffffめめめめめffffもやめffffffもやkkkkfffffffffffffffffもやめめめめめffもやkkkkfffffffffffffffffもやめめめめめffもやkkkkffめめめめめめめめめめめめめffゆゆゆffffffもやkkkkfffffffffffffffifbdfffffffゆゆkkkkfffffffffffffifiicef
+めめめめめめめめkkkkめめめめめめめめめめめめめめめめめめめめめめめめめめめめkkkkめめめめめめめめめめめめめめめめめめめめ
+;enemy
+414151218191819+82515690A04,11030918191819-81403690A04,24091018191819-82709690A04,12181318191819+82918690A04
+;event
+29,18,chest,MAGICLAMP,GetItemNoEnemy
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;title MAP_ID 06 スタート下右２　ラスボス前
+;map
+ゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆ____ゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆ____ゆゆゆゆゆゆゆもや____________________________もやもや____________________________もやもや__ゆゆゆゆゆゆゆゆゆゆ____ゆゆゆゆゆゆゆゆゆゆ__もやもや__もやもや______________もや__もや__もやもや__もやもや______________もや__もや__もや
+もや__もやもや______________もや__もや__もやもや__もやゆゆ__ゆゆゆゆゆゆゆゆ____もや__もや__もやもや__もや__________もや____もや__もや__もやもや__もや__________もや____もや__もや__もやもや__もやゆゆゆゆゆゆゆゆ__もや____もや__もや__もやもや__もや__________もや____ゆゆ__もや__もやもや__もや__________もや________もや__もやもや__もや________ゆゆも
+や__gggg__ゆゆ__もやもや__もや________もやもや__gggg______もやもや__もや__ゆゆ____もやもや__gggg______もやゆゆ__もや__もや____ゆゆゆゆ__gggg__ゆゆゆゆもや____もや__もやゆゆ________grsg______もや____もや__もやもや________gssg______もやゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆ
+;enemy
+318181410121113+82418F03A0A,15061410121113+91507F03A0A,27151411131012+92715F03A0A
+;event
+21,15,fairy,NO_ITEM,NoAction
+21,18,door,FAIRY,Warp 2 2 8 18
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;title MAP_ID 07 スタート下左　奥に宝箱
+;map
+めめめめめめめめfffffffffffffffffffめめめめめめめめめめめめめfffffffffffffffffffめめめめめめffffffめfffffffffffffffffffffffめめffffffめffffffffffffbdfffffffffめめffffffめffffffffffffcefffffffffめめffめめffめffめめめめめめめめめめめめめめfffffffめめffめめffめffffffffめめめめめffffffffffめ
+めffめめffめffffffffめめめめfffffffffffめめめめめめffめめめめめめめffめめめffffffffffffめめfffffffffffffffめめfffffffffffffめめfffffffffffffffめfffffffめめめめめfffめめめめめめめめfffffffffffffffめめめめめffffめめめめめめめめffffffffffffffめめめめめfffffめめめめめめめめfffffffffffffめめめめめffffffめめめめめめffffffffffff
+ffめめめめめfffffffめめめめfffffffffffffffめめめめめffffffffめめめfffffffゆゆffゆゆffめめめめめfffffffffめめめfffffffもやffもやffffffffffffffffめめffffffffもやffもやffffffffffffffffめめffffffffもやffもやffffめめめめめめめfffffめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめめ
+;enemy
+305090120212021-82609140303,02140120212021+81414140303,02031514141414+00203B41408
+;event
+1,6,chest,SHIELD,GetItem
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;title MAP_ID 08 スタート下２　スケルトン
+;map
+ゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆggggggggggggggggggggggggggもやggggggggggggggggggggggggggggggもやggggggggggggggggggggggggggggggもやggggめめめめめめめgggggggggggggggggggもやggggggggggggggggめめめめめめggghggggもやggggggh
+gggghghggめめghgghgghhgggもやhgggghhhghghhhghめめghhghghhhgghもやhhgghhhhhhhめめめめめめめhhhhhhhhhghhもやhhhghhhhghhhhめめめめめhhhhhhhhhhhhもやhhhhhhhhhhhhhめめめめめhhhめめめめhhhhhゆゆhhhhhhhhhhhhhめめめめめhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhめめhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhめめh
+hhhhhhhhhhhbdhhhhhhhhめめめhhhhhめめhhめめめhhhhhhhcehhhhhhhhめめめめめめhhめめhhめめめhhめめhhhゆゆhhhhhhhhめめめめめめめめめめめめめめめめめめめhhhもやhhhhhhhhめめめめめめめめめめめめめめめめめめめめめめもやhhhhゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆ
+;enemy
+217091514161517+81909B41406,07071514161517+81007B41406
+;mode
+invisible_wall
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;title MAP_ID 09 スタート下２右　滝
+;map
+ゆゆゆゆゆゆゆゆkkkkゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆkkkkゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆggggggggkkkkgゆゆhhhhhhhhhhhhhhゆゆゆggggggggkkkkgゆhhgggghhhhgggghhもやggggggggkkkkgゆhhgrsghhhhgtsghhもやgghgggghkkkkgゆhhgssghhhhgssghhもやhghgghghkkkkhゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆもや
+hhhhghhhkkkkhgghhggghhggghhgghもやhhhhhhhhkkkkhhhhhhhhhhhhhhhhhhもやhhhhhhhhkkkkhhhhhhhhhhhhhhhhhhもやhhhhhhhhkkkkhhhhhhhhhhhhhhhhhhもやhhhhhhhhkkkkhhhhhhhhhhhhhhhhhhもやhhhhhhhhkkkkめめhhhhhhhhhhhhhhhhもやhhhhhhhhkkkkめめhhhhhhhめめhhhhhhhもやhhhhhhhhkkkkhhhh
+hhhhhめめhhhhめめめもやhhhhhhhhkkkkhhhhhめめhhめめめめめめめめめもやhhhhhhhhkkkkhhhhhめめhhめめめめめめめめめもやhhhめめめhhkkkkhhhhhめめhhめめめめめめめめめもやhhhめめめhhkkkkhhhhhめめめめめめめめめめめめめもやゆゆゆゆゆゆゆゆkkkkゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆkkkkゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆkkkkゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆ
+;enemy
+223131514161517+82513B41406,03151514161517-80415B41406
+;mode
+invisible_wall
+;event
+17,4,door,KEY,Warp 0 1 15 14
+21,4,chest,HAMMER,GetItem
+25,4,door,KEY,Warp 2 0 5 17
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;title MAP_ID 10 スタート下２右２　ラスボス
+;map
+ゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆもや____________________________もやもや____________________________もやもや____________________________もやもや____________________________もやもや____________________________もや
+もや____________________________もやもや______ゆゆゆ__________ゆゆゆ______もやもや____________________________もやもやゆゆゆ______________________ゆゆゆもやもや____________________________もやもや____________________________もやもや____________________________もやもや________________
+_____ゆゆゆ____もやもやi__________________________iもやもやi__iゆゆゆゆゆゆ______________i__iもやもやiiiiiggggゆ_i__i_____ii_iiiiiもやもやmomoigrsgゆii_iii_ii_imoimomoもやもやnpnpigssgゆiiiiiiiiiiinpinpnpもやゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆ
+;enemy
+299001520212021-828000F4002,99001520212021+828000F4002
+;mode
+last_boss
+;event
+8,18,none,NO_ITEM,Warp 2 1 21 18
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;title MAP_ID 11 スタート下２左　地下奥
+;map
+ゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆもやふほふほふほふほふほふほふほふほふほふほふほふほふもやgggもやへまへまへまへまへまへまへまへまへまへまへまへまへもやgggもやiiiiiiiiiiiiiiiiiiiiiiiiiもやgggもやiiiiqoiiiiiiiiiiiiiiiiiiiもやgggもやiiiinpiiiiiiiiiiiiiふほふほiiもやggg
+もやiiiふほふほふほふほふほiiiiiiへまへまiiもやhggもやiiiへふほふほふほふほふほiiiiiiiiiiiもやhggもやiiiふほふほふほふほふほまiiiiiiiiiiiもやhhgもやiiふほふほふほふほふほふほふほふほiiiiiiiもやhhhもやiiへまへまへまへまへまへまへまへまiiiiiiiもやhhhもやiiiiiiiiiiiiiiiiiiiiiiふほふもやhhhもやiiiiiiiiiiiiiiiiiiiiiiへまへもやhhhもやiiiiiiiiiiiiii
+iiiiiiiiiiiもやhhhもやhhhhhhhhhhhhhhhhhhhhhhhhhもやhhhもやhhhhhhhhhhhhhhhhhhhhhhhhhゆゆhhhもやhhゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆhhhhhhhhhhhもやhhゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆhhhhhhhhhhhゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆゆ
+;enemy
+121171514161517+82617B41406
+;event
+6,5,none,FAIRY,GetItem
+9,5,chest,NO_ITEM,NoAction
+12,5,chest,NO_ITEM,NoAction
+23,4,chest,NO_ITEM,NoAction
+
+
