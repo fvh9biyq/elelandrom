@@ -38,6 +38,7 @@ ENEMY_INDEX := VIEW_CODE_AREA+VIEW_CODE_AREA_WIDTH*VIEW_CODE_AREA_HEIGHT;敵移�
 ENEMY_COUNT := ENEMY_INDEX+1;画面上の敵最大数
 
 ENEMY_LIST := ENEMY_COUNT+1;
+ ENEMY_STR := +0
  ; +0 str
  ENEMY_EXP := +1
  ; +1 exp
@@ -129,6 +130,9 @@ PLAYER_NEXTEXP := PLAYER_EXP+1
 PLAYER_LEVEL := PLAYER_NEXTEXP+1
 PLAYER_HPMAX := PLAYER_LEVEL+1
 PLAYER_HP := PLAYER_HPMAX+1
+PLAYER_DAMAGE_COUNT := PLAYER_HP+1 ;無敵カウント
+PLAYER_NODAMAGE := PLAYER_DAMAGE_COUNT+1 ;1の時ダメージを受けない
+PLAYER_HEAL_COUNT := PLAYER_NODAMAGE+1 ;この値が桁あふれした時点でHP回復
 
 ;デバッグ用のマクロ
 include "src/debug.inc"
@@ -203,7 +207,8 @@ loop:
 	call MOVE_ENEMY ;敵移動処理
 	call JUMP_ENEMY ;敵JUMP処理
 	call CHECK_PLAYER_ATTACK ;プレイヤー攻撃判定
-	call CHECK_ENEMY ;敵処理
+	call CHECK_PLAYER_DAMAGE ;プレイヤーダメージ判定
+	call DOWN_DAMAGE_COUNT ;ダメージカウントをダウン
 	call CHECK_EVENT ;イベント確認
 	call CHECK_MAPMOVE ;画面端でマップ移動していないかチェック
 
@@ -225,9 +230,13 @@ skip_damage_effect:
 do_wait:
 	call WAIT
 
+;	jp GAMECLEAR
+
+	ld a,[PLAYER_HP]
+	or a,a
+	jp z,GAMEOVER
+
 	jr loop
-;	call ENDING
-	jr MAIN
 ENDSCOPE; MAIN
 
 
@@ -249,12 +258,9 @@ TITLE::
 	inc hl
 	ld [hl],a ;GAME_SPEED
 
-	xor a,a
 	ld hl,PLAYER_ITEMS
-	ld [hl],a
-	ld de,PLAYER_ITEMS+1
-	ld bc,6
-	ldir
+	ld bc,PLAYER_HEAL_COUNT-PLAYER_ITEMS
+	call CLEAR_AREA
 
 	; SPRITE 初期化
 	ld hl,PLAYER_Y
@@ -265,6 +271,11 @@ TITLE::
 	xor a,a
 	ld [hl],a
 
+	;敵データをクリア
+	ld hl,ENEMY_LIST
+	ld bc,ENEMY_SIZE*ENEMY_MAX_COUNT-1
+	call CLEAR_AREA
+
 put_title:
 	call CLEAR_VIEW_CODE_AREA
 	ld hl,text_title
@@ -273,9 +284,18 @@ put_text_loop:
 	call TEXT_COPY
 	djnz put_text_loop
 
+	;BGM OFF
+	ld bc,BGM_DATA_OFF
+	call SET_BGM_CURRENT
+
 	;VRAMに書き込み
 	ld a,0xf0
 	ld [GAME_CONTROLLER],a
+
+	;GAMEOVER時にスペースを押してタイトルに戻った際、スペースキーが離されるまで待たないと再スタートしてしまう
+wait_release:
+	call GTTRIG
+	jr nz,wait_release
 
 	call BIOS_KILBUF
 loop:
@@ -377,8 +397,14 @@ ENDSCOPE; TITLE
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SCOPE GAME_INIT
 GAME_INIT::
+	ld a,[MAP_ID]
+	or a,a
+	ld a,120
+	jr z,set_player_y
+	ld a,-1
+set_player_y:
 	ld hl,PLAYER_Y
-	ld [hl],120
+	ld [hl],a
 
 	ld bc,BGM_DATA_CHEST
 	call SET_BGM_CURRENT
@@ -405,6 +431,9 @@ ENDSCOPE; GAME_INIT
 SCOPE MOVE_PLAYER
 MOVE_PLAYER::
 	call GTSTCK
+	push af
+	call z,PLAYER_HEAL ;何も押されていなければプレイヤー回復
+	pop af
 	push af
 	jr z,skip_move
 	cp a,2
@@ -790,10 +819,174 @@ IS_ATTACK::
 ENDSCOPE; IS_ATTACK
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;; 敵処理残り
+;;;; プレイヤー回復
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SCOPE CHECK_ENEMY
-CHECK_ENEMY::
+SCOPE PLAYER_HEAL
+PLAYER_HEAL::
+	;ジャンプ中は回復しない
+	ld a,[JUMP_COUNT]
+	or a,a
+	ret nz
+
+	;ENEMY_INDEXが0でない場合は回復しない
+	ld a,[ENEMY_INDEX]
+	or a,a
+	ret nz
+
+	;ダメージを食らっている最中は回復しない
+	ld hl,PLAYER_DAMAGE_COUNT
+	or a,a
+	ret nz
+
+	ld a,0x08 ;回復速度
+	ld hl,PLAYER_ITEMS
+	bit 1,[hl] ;ITEM_FAIRY
+	jr z,normal_heal
+	ld a,0x20 ;妖精がいる場合の回復速度
+normal_heal:
+	ld hl,PLAYER_HEAL_COUNT
+	add a,[hl]
+	ld [hl],a
+	ret nc
+
+	ld hl,PLAYER_HPMAX
+	ld b,[hl]
+	inc hl ;PLAYER_HP
+	ld a,[hl]
+	cp a,b
+	ret nc
+	inc a
+	ld [hl],a
+
+	call PUT_STATUS
+
+	ret
+ENDSCOPE; PLAYER_HEAL
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; プレイヤーダメージ判定
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SCOPE CHECK_PLAYER_DAMAGE
+CHECK_PLAYER_DAMAGE::
+
+	;PLAYER_NODAMAGEが1の時ダメージを受けない
+	ld hl,PLAYER_NODAMAGE
+	ld a,[hl]
+	or a,a
+	ret nz
+
+	;ダメージ受けている中はダメージ判定しない
+	dec hl ;PLAYER_DAMAGE_COUNT
+	ld a,[hl]
+	or a,a
+	ret nz
+
+	;敵全員と判定
+	ld ix,ENEMY_LIST
+	ld b,ENEMY_MAX_COUNT ;敵は最大4
+loop:
+	push bc
+	ld a,[ix+ENEMY_HP]
+	or a,a
+	jp z,next_enemy ;HP=0の敵は判定しない
+	ld a,[ix+ENEMY_DAMAGE_COUNT] ;ダメージカウント
+	or a,a
+	jr nz,next_enemy ;ダメージを受けている敵は判定なし
+	; プレイヤーの位置と敵の位置を比較し、ヒットしていればダメージを受ける
+	ld hl,PLAYER_Y
+	ld a,[hl]
+	sub a,[ix+ENEMY_yPos]
+	add a,16
+	cp a,32
+	jr nc,next_enemy
+	inc hl ;PLAYER_X
+	ld a,[hl]
+	sub a,[ix+ENEMY_xPos]
+	add a,13
+	cp a,26
+	jr nc,next_enemy
+
+	;ダメージエフェクト
+	ld  hl,GAME_CONTROLLER
+	set 2,[hl] ;DAMAGE_EFFECT
+
+	;ダメージ
+	ld b,[ix+ENEMY_STR]
+	ld a,[PLAYER_EXP]
+	inc a
+	jr nz,check_item_shield
+	;経験値MAXの場合ダメージ1/3
+	ld a,b
+	call DIV3
+	ld b,a
+	jr skip_item_shield
+check_item_shield:
+	ld hl,PLAYER_ITEMS
+	bit 7,[hl]
+	jr z,skip_item_shield
+	;盾を持っているとダメージ半減
+	srl b
+skip_item_shield:
+
+	ld hl,PLAYER_HEAL_COUNT
+	ld [hl],0
+	dec hl
+	dec hl ;PLAYER_DAMAGE_COUNT
+	ld [hl],32
+	dec hl ;PLAYER_HP
+	ld a,[hl]
+	sub a,b
+	jr nc,set_hp
+	xor a,a
+set_hp:
+	ld [hl],a
+	call PUT_STATUS
+
+next_enemy:
+	ld de,ENEMY_SIZE
+	add ix,de
+	pop bc
+	djnz loop
+
+	ret
+ENDSCOPE; CHECK_PLAYER_DAMAGE
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; 3で割る
+;;;; in a:割られる数 out a:割った結果
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SCOPE DIV3
+DIV3::
+	push de
+	push hl
+	ld hl,0xc040
+	ld d,a
+	ld e,0
+loop:
+	ld a,d
+	sub a,h
+	jr c,next
+	ld d,a
+	ld a,e
+	add a,l
+	ld e,a
+next:
+	srl h
+	srl l
+	jr nc,loop
+	ld a,e
+
+	pop hl
+	pop de
+	ret
+ENDSCOPE; DIV3
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; ダメージカウントをダウン
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SCOPE DOWN_DAMAGE_COUNT
+DOWN_DAMAGE_COUNT::
 	;敵　無敵（ダメージ）カウントダウン
 	ld hl,ENEMY_LIST+ENEMY_DAMAGE_COUNT
 	ld b,4
@@ -807,8 +1000,17 @@ loop:
 next_enemy:
 	add hl,de
 	djnz loop
+
+	ld hl,PLAYER_DAMAGE_COUNT
+	ld a,[hl]
+	or a,a
+	jr z,skip_player
+	dec a
+	ld [hl],a
+skip_player:
+
 	ret
-ENDSCOPE; CHECK_ENEMY
+ENDSCOPE; DOWN_DAMAGE_COUNT
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; イベント確認
@@ -1606,6 +1808,57 @@ exp_tbl:
 ENDSCOPE; CALC_PLAYER_STATUS
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; GAMECLEAR
+;;;;  GAMECLEAR処理
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SCOPE GAMECLEAR
+ENDING::
+	jp MAIN
+ENDSCOPE; GAMECLEAR
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; GAMEOVER
+;;;;  GAMEOVER処理
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SCOPE GAMEOVER
+GAMEOVER::
+	ld hl,text_gameover
+	call TEXT_COPY
+
+	;スプライト消去
+	ld hl,PLAYER_Y
+	ld [hl],NO_SPRITE_Y
+
+	ld hl,GAME_CONTROLLER
+	ld [hl],0xf0
+	ld a,60
+	call WAIT
+
+	ld hl,text_push_space_key
+	call TEXT_COPY
+	ld hl,GAME_CONTROLLER
+	ld [hl],0xf0
+	ld a,60
+	call WAIT
+
+	;スペースキーが押されるまで待つ
+loop:
+	call GTTRIG
+	jr z,loop
+
+	jp MAIN
+
+text_gameover:
+	DEFW VIEW_CODE_AREA+11+11*VIEW_CODE_AREA_WIDTH
+	DEFS "GAME OVER"
+	DEFB 0
+text_push_space_key:
+	DEFW VIEW_CODE_AREA+9+13*VIEW_CODE_AREA_WIDTH
+	DEFS "PUSH SPACE KEY"
+	DEFB 0
+ENDSCOPE; GAMEOVER
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

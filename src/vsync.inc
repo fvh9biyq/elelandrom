@@ -21,7 +21,6 @@ skip_wait:
 	ret
 ENDSCOPE; WAIT
 
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; BGMデータセット
 ;;;;   bc:BGMデータ先頭
@@ -71,7 +70,7 @@ skip_wait_count:
 	jp nz,skip_bgm_count
 
 	;BGM処理
-	inc hl
+	inc hl ;BGM_CURRENT
 	push bc
 	push de
 	ld c,[hl]
@@ -224,7 +223,12 @@ PUT_SPRITE::
 	ld hl,PLAYER_Y
 	ld b,3
 	otir
+	ld a,[PLAYER_DAMAGE_COUNT]
+	or a,a
 	ld a,7
+	jr z,skip_player_damage
+	inc a
+skip_player_damage:
 	out [c],a
 
 	;プレイヤーのスプライト2を出力
@@ -333,5 +337,6 @@ BGM_DATA_CLEAR::
 	DEFB 0xf0,6 ;テンポ指定
 	DEFB 0xf1,15 ;ボリューム指定
 	DEFB 0x07,0x06,0x05,0x04,0x20,0x06,0x05,0x04,0x20,0x06,0x05,0x04,0x06,0x20,0x37
+BGM_DATA_OFF::
 	DEFB 0xf4
 

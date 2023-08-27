@@ -175,6 +175,11 @@ debug_wait:
 	ld [GAME_SPEED],a
 	jr debug_code_success
 
+debug_code_nodamage:
+	ld a,1
+	ld [PLAYER_NODAMAGE],a
+	jr debug_code_success
+
 debug_code_msxcolor:
 	ld b,15
 	ld hl,debug_code_msxcolor_data
@@ -209,7 +214,6 @@ debug_code_msxcolor_data:
 	DEFB 0x12, 0x005; 0x3eb849
 	DEFB 0x00, 0x000; 0x000000
 
-
 debug_code:
 	DEFB 3
 	DEFS "MAP"
@@ -217,6 +221,9 @@ debug_code:
 	DEFB 4
 	DEFS "WAIT"
 	DEFW debug_wait
+	DEFB 8
+	DEFS "NODAMAGE"
+	DEFW debug_code_nodamage
 	DEFB 8
 	DEFS "MSXCOLOR"
 	DEFW debug_code_msxcolor
