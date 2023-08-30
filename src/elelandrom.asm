@@ -53,8 +53,16 @@ ENEMY_LIST := ENEMY_COUNT+1;
  ENEMY_SPRITE := +6
  ; +6 スプライトパターン番号
  ; +7 色コード
- ENEMY_Move := +8
- ; +8 Move 移動データ bit0　0=右向き,1=左向き
+ ENEMY_Status := +8
+ ; +8 ENEMY_Status　bit0:0=右向き,1=左向き　bit1:1=横移動する　bit2:1=ジャンプする　bit3:1=ガイコツ　bit4:1=オオカミ
+  ENEMY_Status_ISRIGHT_BIT := 0
+  ENEMY_Status_JUMP_BIT := 2
+  ENEMY_Status_Skeleton := 3
+  ENEMY_Status_Wolf := 4
+
+  ENEMY_Status_ISRIGHT := 1
+  ENEMY_Status_MOVE := 2
+  ENEMY_Status_JUMP := 4
  ENEMY_JumpCount := +9
  ; +9 JumpCount
  ;    0の時着地
@@ -63,13 +71,11 @@ ENEMY_LIST := ENEMY_COUNT+1;
  ;    33～40　移動しない
  ;    40～56　下1
  ;    57～72　下2
- ; +10 yMax
- ENEMY_xMax := +11
- ; +11 xMax
- ; +12 yMin
- ENEMY_xMin := +13
- ; +13 xMin
- ENEMY_SIZE := 14
+ ENEMY_xMax := +10
+ ; +10 xMax
+ ENEMY_xMin := +11
+ ; +11 xMin
+ ENEMY_SIZE := 12
  ENEMY_MAX_COUNT := 4 ;敵は最大4
 
 MAP_ID := ENEMY_LIST+ENEMY_SIZE*ENEMY_MAX_COUNT;
@@ -94,13 +100,20 @@ GAME_SPEED := ATTACK_COUNT+1 ;ゲームの速さ
 WORK_H_TIMI_SAVE := GAME_SPEED+1; WORK_H_TIMIのコピー
 GAME_CONTROLLER :=  WORK_H_TIMI_SAVE+WORK_H_TIMI_SIZE ;ゲーム処理
  ;bit0 1:このマップで敵全滅した
- ;bit1 1:イベントでマップ移動した場合、15/60秒待つ
+  GAME_CONTROLLER_NOENEMY_BIT := 0
+ ;bit1 1:マップ移動した場合、10/60秒待つ
+  GAME_CONTROLLER_WAIT_BIT := 1
  ;bit2 1:ダメージエフェクト
+  GAME_CONTROLLER_DAMAGE_EFFECT_BIT := 2
 
  ;bit7 1:VRAM書き込み司令
+  GAME_CONTROLLER_WRITE_BIT := 7
  ;bit6 1:スプライト書き込み
+  GAME_CONTROLLER_SPRITE_BIT := 6
  ;bit5 1:MAP欄
+  GAME_CONTROLLER_MAP_BIT := 5
  ;bit4 1:ステータス欄
+  GAME_CONTROLLER_STATUS_BIT := 4
 
 WAIT_COUNT := GAME_CONTROLLER+1 ;移動後、この時間待つ
 INTERVAL_TIMER := WAIT_COUNT+1 ;VSYNC毎にカウントアップされる
@@ -124,6 +137,10 @@ PLAYER_ITEMS := PLAYER_SPRITE+1 ;各アイテム 盾(bit7)、剣(bit6)、鍵(bit
  ITEM_HAMMER := 0x08 ;ハンマー(bit3) 4番
  ITEM_MAGICLAMP := 0x04 ;魔法のランプ(bit2) 5番　持っていると雲の上を歩ける
  ITEM_FAIRY := 0x02 ;妖精(bit1) 6番
+
+ ITEM_SHIELD_BIT := 7
+ ITEM_HAMMER_BIT := 3
+ ITEM_FAIRY_BIT := 1
 
 PLAYER_EXP := PLAYER_ITEMS+1
 PLAYER_NEXTEXP := PLAYER_EXP+1
@@ -168,15 +185,16 @@ IS_BLOCK_CHECK_DATA::
 ;;;;   
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 PLAYER_ATTACK_POINT::
-	DEFB   4;,3 ;レベル1
-	DEFB  10;,10 ;レベル2
-	DEFB  20;,20 ;レベル3
-	DEFB  34;,33 ;レベル4
-	DEFB  50;,50 ;レベル5
-	DEFB  70;,70 ;レベル6
-	DEFB  94;,93 ;レベル7
-	DEFB 120;,120 ;レベル8
-	DEFB 150;,150 ;レベル9
+	DEFB   4,3 ;レベル1
+	DEFB  10,10 ;レベル2
+	DEFB  20,20 ;レベル3
+	DEFB  34,33 ;レベル4
+	DEFB  50,50 ;レベル5
+	DEFB  70,70 ;レベル6
+	DEFB  94,93 ;レベル7
+	DEFB 120,120 ;レベル8
+	DEFB 150,150 ;レベル9
+	DEFB 170,170 ;レベル10
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; BGM 音階
@@ -213,20 +231,22 @@ loop:
 	call CHECK_MAPMOVE ;画面端でマップ移動していないかチェック
 
 	ld  hl,GAME_CONTROLLER
-	set 6,[hl]
-	set 7,[hl] ;VRAM書き込み司令
+	set GAME_CONTROLLER_SPRITE_BIT,[hl]
+	set GAME_CONTROLLER_WRITE_BIT,[hl] ;VRAM書き込み司令
 
-	bit 2,[hl]
+	bit GAME_CONTROLLER_DAMAGE_EFFECT_BIT,[hl]
 	jr z,skip_damage_effect
-	res 2,[hl]
+	res GAME_CONTROLLER_DAMAGE_EFFECT_BIT,[hl]
 	call DAMAGE_EFFECT
 skip_damage_effect:
 
 	ld a,[GAME_SPEED] ;
+	or a,a
+	jr z,do_wait
 	bit 1,[hl]
 	jr z,do_wait
 	res 1,[hl]
-	ld a,15 ;イベントでマップ移動した場合、15/60秒待つ
+	ld a,10 ;イベントでマップ移動した場合、10/60秒待つ
 do_wait:
 	call WAIT
 
@@ -289,7 +309,7 @@ put_text_loop:
 	call SET_BGM_CURRENT
 
 	;VRAMに書き込み
-	ld a,0xf0
+	ld a,0xf0 ;GAME_CONTROLLER_WRITE_BITからGAME_CONTROLLER_STATUS_BIT
 	ld [GAME_CONTROLLER],a
 
 	;GAMEOVER時にスペースを押してタイトルに戻った際、スペースキーが離されるまで待たないと再スタートしてしまう
@@ -317,7 +337,7 @@ input_passward_loop:
 	push bc
 
 	;VRAMに書き込み
-	ld a,0xf0
+	ld a,0xf0 ;GAME_CONTROLLER_WRITE_BITからGAME_CONTROLLER_STATUS_BIT
 	ld [GAME_CONTROLLER],a
 no_input:
 	ld a,12
@@ -419,7 +439,7 @@ set_player_y:
 	call PUT_STATUS
 
 	;VRAMに書き込み
-	ld a,0xf0
+	ld a,0xf0 ;GAME_CONTROLLER_WRITE_BITからGAME_CONTROLLER_STATUS_BIT
 	ld [GAME_CONTROLLER],a
 
 	ret
@@ -560,10 +580,10 @@ current_enemy:
 	or a,a
 	jr nz,next_enemy ;ダメージを受けている敵は移動＆足踏みしない
 
-	ld a,[ix+ENEMY_Move-ENEMY_HP] ;Move
-	or a,a
-	jr z,next_enemy ;Move=0は移動しない
-	bit 2,a
+	ld a,[ix+ENEMY_Status-ENEMY_HP] ;ENEMY_Status
+	and a,ENEMY_Status_MOVE+ENEMY_Status_JUMP+ENEMY_Status_ISRIGHT
+	jr z,next_enemy ;横移動もジャンプもしない場合は次の敵
+	bit ENEMY_Status_JUMP_BIT,a
 	jr z,not_jump
 
 	;ジャンプする
@@ -574,9 +594,9 @@ current_enemy:
 	jr next_enemy
 not_jump:
 
-	and a,3
+	and a,ENEMY_Status_ISRIGHT+ENEMY_Status_MOVE
 	rra
-	jr nc,right ;Moveのbit0が1の場合右向き 0の場合左向き
+	jr nc,right ;右向き
 	neg
 	add a,[ix+ENEMY_xPos-ENEMY_HP] ;X座標
 	cp a,[ix+ENEMY_xMin-ENEMY_HP] ;xMin
@@ -590,9 +610,9 @@ set_pos:
 	ld [ix+ENEMY_xPos-ENEMY_HP],a ;X座標
 	jr step_enemy
 turn:
-	ld a,[ix+ENEMY_Move-ENEMY_HP] ;Move
-	xor a,1
-	ld [ix+ENEMY_Move-ENEMY_HP],a ;Move
+	ld a,[ix+ENEMY_Status-ENEMY_HP] ;ENEMY_Status
+	xor a,ENEMY_Status_ISRIGHT
+	ld [ix+ENEMY_Status-ENEMY_HP],a ;ENEMY_Status
 
 step_enemy:
 	;敵を足踏みさせる
@@ -603,7 +623,7 @@ step_enemy:
 	ld a,[ix+ENEMY_SPRITE -ENEMY_HP] ; パターン番号
 	xor a,2*4 ;足踏み
 	and a,255-4
-	bit 0,[ix+ENEMY_Move -ENEMY_HP] ; Moveのbit0が1の場合右向き
+	bit ENEMY_Status_ISRIGHT_BIT,[ix+ENEMY_Status -ENEMY_HP] ; Statusのbit0が1の場合右向き
 	jr z,set_enemy_sprite
 	or a,4 ;スプライトパターン番号を左向きにする
 set_enemy_sprite:
@@ -686,6 +706,14 @@ CHECK_PLAYER_ATTACK::
 	; スペースキーを押していなければ
 	xor a,a
 	jr set_attack_count
+
+next_enemy:
+	ld de,ENEMY_SIZE
+	add ix,de
+	pop bc
+	djnz loop
+	ret
+
 attack:
 	; スペースキーを押していれば
 	inc a
@@ -705,10 +733,19 @@ loop:
 	push bc
 	ld a,[ix+ENEMY_HP]
 	or a,a
-	jp z,next_enemy ;HP=0の敵は判定しない
+	jr z,next_enemy ;HP=0の敵は判定しない
 	ld a,[ix+ENEMY_DAMAGE_COUNT] ;ダメージカウント
 	or a,a
 	jr nz,next_enemy ;ダメージを受けている敵は攻撃判定なし
+
+	;ガイコツはハンマー無しだとダメージを与えられない
+	bit ENEMY_Status_Skeleton,[ix+ENEMY_Status]
+	jr z,not_skeleton
+	ld hl,PLAYER_ITEMS
+	bit ITEM_HAMMER_BIT,[hl]
+	jr z,next_enemy
+
+not_skeleton:
 	; 剣の位置と敵の位置を比較し、ヒットしていればダメージを与える
 	ld hl,PLAYER_Y
 	ld a,[hl]
@@ -731,7 +768,11 @@ left_attack:
 	cp a,32
 	jr nc,next_enemy
 
-	 ;敵吹っ飛ぶ
+	;オオカミは吹っ飛ばない(であってる？)
+	bit ENEMY_Status_Wolf,[ix+ENEMY_Status]
+	jr nz,skip_knock_back
+
+	;敵吹っ飛ぶ
 	ld a,[ix+ENEMY_xPos]
 	sub a,8
 	bit 2,[hl]
@@ -740,21 +781,39 @@ left_attack:
 left_knock_back:
 	ld [ix+ENEMY_xPos],a
 
+skip_knock_back:
 	ld a,3 ;敵無敵時間
 	ld [ix+ENEMY_DAMAGE_COUNT],a
 
 	;ダメージエフェクト
 	ld  hl,GAME_CONTROLLER
-	set 2,[hl] ;DAMAGE_EFFECT
+	set GAME_CONTROLLER_DAMAGE_EFFECT_BIT,[hl] ;DAMAGE_EFFECT
 
 	;敵HP減少
 	ld a,[PLAYER_LEVEL]
-	ld hl,PLAYER_ATTACK_POINT-1
+	cp a,11 ;level max
+	jr c,not_max_level
+	;ボス以外の敵は最大255ダメージ
+max_damage:
+	ld c,255
+	jr enemy_damage
+not_max_level:
+	ld hl,PLAYER_ATTACK_POINT-2
+	add a,a
 	add a,l
 	ld l,a
-	ld l,[hl]
+	ld c,[hl]
+	ld a,[PLAYER_ITEMS]
+	and a,ITEM_SWORD
+	jr z,enemy_damage ;剣を持っているとダメージ2倍
+	inc l
+	ld a,[hl]
+	add a,c
+	jr c,max_damage
+	ld c,a
+enemy_damage:
 	ld a,[ix+ENEMY_HP]
-	sub a,l
+	sub a,c
 	jr nc,set_hp
 	xor a,a
 set_hp:
@@ -794,14 +853,8 @@ skip_enemy_hp0:
 	inc de ;ENEMY_HP
 	call BYTE_TO_TEXT
 
-next_enemy:
-	ld de,ENEMY_SIZE
-	add ix,de
-	pop bc
-	dec b
-	jp nz,loop
+	jp next_enemy
 
-	ret
 ENDSCOPE; CHECK_PLAYER_ATTACK
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -840,7 +893,7 @@ PLAYER_HEAL::
 
 	ld a,0x08 ;回復速度
 	ld hl,PLAYER_ITEMS
-	bit 1,[hl] ;ITEM_FAIRY
+	bit ITEM_FAIRY_BIT,[hl] ;ITEM_FAIRY
 	jr z,normal_heal
 	ld a,0x20 ;妖精がいる場合の回復速度
 normal_heal:
@@ -908,7 +961,7 @@ loop:
 
 	;ダメージエフェクト
 	ld  hl,GAME_CONTROLLER
-	set 2,[hl] ;DAMAGE_EFFECT
+	set GAME_CONTROLLER_DAMAGE_EFFECT_BIT,[hl] ;DAMAGE_EFFECT
 
 	;ダメージ
 	ld b,[ix+ENEMY_STR]
@@ -922,7 +975,7 @@ loop:
 	jr skip_item_shield
 check_item_shield:
 	ld hl,PLAYER_ITEMS
-	bit 7,[hl]
+	bit ITEM_SHIELD_BIT,[hl] ;ITEM_SHIELD
 	jr z,skip_item_shield
 	;盾を持っているとダメージ半減
 	srl b
@@ -1031,7 +1084,7 @@ CHECK_EVENT::
 	jp z,EVENT_PASSWORD ;EVENT_ID=3 Password パスワード表示
 	;EVENT_ID=4以上 Warp ワープ
 	ld hl,GAME_CONTROLLER
-	set 1,[hl]
+	set GAME_CONTROLLER_WAIT_BIT,[hl]
 	ld hl,WARP_LIST-3
 	ld c,a
 	add a,a
@@ -1061,7 +1114,7 @@ SKIP_EVENT::
 
 	;敵全滅時の処理
 	ld hl,GAME_CONTROLLER
-	bit 0,[hl]
+	bit GAME_CONTROLLER_NOENEMY_BIT,[hl]
 	ret nz ;既に全滅している
 	call ISNOENEMY
 	ret nz ;全滅していない
@@ -1149,7 +1202,8 @@ map_max:
 
 MAP_MOVE::
 	ld hl,GAME_CONTROLLER
-	res 0,[hl] ;全滅フラグを消す
+	res GAME_CONTROLLER_NOENEMY_BIT,[hl] ;敵全滅フラグを消す
+	set GAME_CONTROLLER_WAIT_BIT,[hl] ;マップ移動した場合、15/60秒待つ
 	call SET_MAPDATA
 	jr not_right
 
@@ -1446,7 +1500,7 @@ skip_invisible_wall:
 
 	;map書き込み
 	ld hl,GAME_CONTROLLER
-	set 5,[hl]
+	set GAME_CONTROLLER_MAP_BIT,[hl]
 
 	ret
 ENDSCOPE; SET_MAPDATA
@@ -1461,9 +1515,9 @@ DAMAGE_EFFECT::
 
 	call PUT_STATUS
 	ld  hl,GAME_CONTROLLER
-	set 6,[hl]
-	set 4,[hl]
-	set 7,[hl]
+	set GAME_CONTROLLER_SPRITE_BIT,[hl]
+	set GAME_CONTROLLER_STATUS_BIT,[hl]
+	set GAME_CONTROLLER_WRITE_BIT,[hl]
 	ld a,1
 	call WAIT
 
@@ -1604,13 +1658,12 @@ ENDSCOPE; BYTE_TO_TEXT
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; CLEAR_STATUS_AREA
-;;;;   ステータス表示区域のクリア 画面左端からE.HPまでクリア
-;;;;   in bc:クリア文字数
+;;;;   ステータス表示区域のクリア
+;;;;   in bc:クリア文字数-1
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SCOPE CLEAR_STATUS_AREA
 CLEAR_STATUS_AREA::
 	ld hl,VIEW_CODE_AREA+22*VIEW_CODE_AREA_WIDTH
-;	ld bc,17
 	push bc
 	call CLEAR_AREA
 	ld hl,VIEW_CODE_AREA+23*VIEW_CODE_AREA_WIDTH
@@ -1625,7 +1678,7 @@ ENDSCOPE; CLEAR_STATUS_AREA
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SCOPE PUT_STATUS
 PUT_STATUS::
-	ld bc,14
+	ld bc,13
 	call CLEAR_STATUS_AREA
 
 	ld hl,text_status
@@ -1681,7 +1734,7 @@ status_loop:
 	djnz status_loop
 
 	ld  hl,GAME_CONTROLLER
-	set 4,[hl]
+	set GAME_CONTROLLER_STATUS_BIT,[hl]
 
 	ret
 text_status:
@@ -1832,14 +1885,14 @@ GAMEOVER::
 	ld [hl],NO_SPRITE_Y
 
 	ld hl,GAME_CONTROLLER
-	ld [hl],0xf0
+	ld [hl],0xf0 ;VRAM書き込み
 	ld a,60
 	call WAIT
 
 	ld hl,text_push_space_key
 	call TEXT_COPY
 	ld hl,GAME_CONTROLLER
-	ld [hl],0xf0
+	ld [hl],0xf0 ;VRAM書き込み
 	ld a,60
 	call WAIT
 
@@ -1892,12 +1945,10 @@ ENDSCOPE; GAMEOVER
 ; 　　+5 X座標　スプライトX座標
 ; 　　+6 スプライトパターン番号　bit0　方向 0:右、1:左、bit1:足踏み
 ; 　　+7 色コード
-; 　　+8 Move　移動データ　bit0　0=右向き,1=左向き　bit1:1=横移動する　bit2:1=JUMPする
+; 　　+8 ENEMY_Status　bit0:0=右向き,1=左向き　bit1:1=横移動する　bit2:1=ジャンプする　bit3:1=ガイコツ　bit4:1=オオカミ
 ; 　　+9 JumpCount
-; 　　+10 yMax　y最大値
-; 　　+11 xMax　x最大値
-; 　　+12 yMin　y最小値
-; 　　+13 xMin　x最小値
+; 　　+10 xMax　x最大値
+; 　　+12 xMin　x最小値
 include "build/src/map.map.data"
 
 include "src/vsync.inc"

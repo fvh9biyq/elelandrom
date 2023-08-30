@@ -343,7 +343,7 @@ void MapManager::write(const char *mapTblFileName,const char *mapDataFileName,Ma
       {
         // enemyData
         ofs << std::endl;
-        constexpr std::size_t ENEMY_SIZE = 14;
+        constexpr std::size_t ENEMY_SIZE = 12;
         ofs << "\tDEFB " << mapData.enemyDataList.size() << " ;ENEMY_COUNT" << std::endl;
         for(const auto &enemyData: mapData.enemyDataList){
           ofs << "\tDEFB " << static_cast<int>(enemyData.str) << " ;str" << std::endl;
@@ -354,19 +354,23 @@ void MapManager::write(const char *mapTblFileName,const char *mapDataFileName,Ma
           ofs << "\tDEFB " << static_cast<int>(enemyData.x)*8+8 << " ;x" << std::endl;
           ofs << "\tDEFB " << (static_cast<int>(enemyData.sprite[0]) & 0xfc )*4 << " ;sprite" << std::endl; //元プラグラムとスプライトパターンの番号が異なる
           ofs << "\tDEFB " << static_cast<int>(enemyData.colorCode) << " ;colorCode" << std::endl;
-          int move{0};
+          int status{0};
           if( enemyData.move==9 ){
             //Jump
-            move=4;
+            status=4;
           }else
           if( enemyData.move!=0 ){
-            move = 2+(127<enemyData.move ? 1 : 0);
+            status = 2+(127<enemyData.move ? 1 : 0);
           }
-          ofs << "\tDEFB " << move << " ;Move" << std::endl;
+          if( 14<=enemyData.sprite[0] && enemyData.sprite[0]<=17 ){
+            status += 8;//スケルトン
+          }
+          if( 10<=enemyData.sprite[0] && enemyData.sprite[0]<=13 ){
+            status += 16;//オオカミ
+          }
+          ofs << "\tDEFB " << status << " ;status" << std::endl;
           ofs << "\tDEFB " << 0 << " ;JumpCount" << std::endl;
-          ofs << "\tDEFB " << static_cast<int>(enemyData.yMax)*8-1 << " ;yMax" << std::endl;
           ofs << "\tDEFB " << static_cast<int>(enemyData.xMax)*8 << " ;xMax" << std::endl;
-          ofs << "\tDEFB " << static_cast<int>(enemyData.y)*8-1 << " ;yMin" << std::endl;
           ofs << "\tDEFB " << static_cast<int>(enemyData.x)*8 << " ;xMin" << std::endl;
         }
         ofs << "\tDEFB " << (mapData.enemyDataList.size()*ENEMY_SIZE+1)+1 << " ;enemy data size" << std::endl; //コピーするサイズ+1

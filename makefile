@@ -28,6 +28,7 @@ all: $(BUILD_DIR)/$(TARGET).rom tool $(MAPTBL_FILES) $(MAPDATA_FILES)
 $(BUILD_DIR)/%.rom: $(SRC_DIRS)/%.asm $(BUILD_DIR)/mapzip $(MAPTBL_FILES) $(MAPDATA_FILES) $(INC_FILES)
 	$(MKDIR_P) $(dir $@)
 	$(Z80) $< $@
+	grep -w _MAXSIZE zma.sym
 
 # map to map.tbl
 $(BUILD_DIR)/%.map.tbl: %.map $(BUILD_DIR)/mapzip

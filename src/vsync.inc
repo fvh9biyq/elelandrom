@@ -168,17 +168,17 @@ end_bgm_count:
 skip_bgm_count:
 
 	ld hl,GAME_CONTROLLER
-	bit 7,[hl]
+	bit GAME_CONTROLLER_WRITE_BIT,[hl]
 	jr z,skip_write_vram
 
-	bit 6,[hl]
+	bit GAME_CONTROLLER_SPRITE_BIT,[hl]
 	jr z,skip_write_sprite
 	push hl
 	call PUT_SPRITE
 	pop hl
 skip_write_sprite:
 
-	bit 5,[hl]
+	bit GAME_CONTROLLER_MAP_BIT,[hl]
 	jr z,skip_write_map
 	push hl
 	ld hl,VIEW_CODE_AREA
@@ -188,7 +188,7 @@ skip_write_sprite:
 	pop hl
 skip_write_map:
 
-	bit 4,[hl]
+	bit GAME_CONTROLLER_STATUS_BIT,[hl]
 	jr z,skip_write_status
 	push hl
 	ld hl,VIEW_CODE_AREA+22*VIEW_CODE_AREA_WIDTH
@@ -198,7 +198,7 @@ skip_write_map:
 	pop hl
 skip_write_status:
 	ld a,[hl]
-	and a,0x0f
+	and a,0x0f ;GAME_CONTROLLER_WRITE_BITからGAME_CONTROLLER_STATUS_BITをクリア
 	ld [hl],a
 
 skip_write_vram:
