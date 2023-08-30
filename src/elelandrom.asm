@@ -1866,9 +1866,63 @@ ENDSCOPE; CALC_PLAYER_STATUS
 ;;;;  GAMECLEAR処理
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SCOPE GAMECLEAR
-ENDING::
-	jp MAIN
+GAMECLEAR::
+	;スプライト消去
+	ld hl,PLAYER_Y
+	ld [hl],NO_SPRITE_Y
+
+	call CLEAR_VIEW_CODE_AREA
+	ld hl,text_message
+	ld b,2
+put_text_loop:
+	call TEXT_COPY
+	djnz put_text_loop
+
+	ld bc,BGM_DATA_CLEAR
+	call SET_BGM_CURRENT
+
+	ld hl,text_push_space_key
+	jp WAIT_SPACE
+text_message:
+	DEFW VIEW_CODE_AREA+8+11*VIEW_CODE_AREA_WIDTH
+	DEFS "CONGRATULATIONS!"
+	DEFB 0
+	DEFW VIEW_CODE_AREA+3+14*VIEW_CODE_AREA_WIDTH
+	DEFS "LET'S CREATE A NEW WORLD!"
+	DEFB 0
+text_push_space_key:
+	DEFW VIEW_CODE_AREA+9+(13+4)*VIEW_CODE_AREA_WIDTH
+	DEFS "PUSH SPACE KEY"
+	DEFB 0
 ENDSCOPE; GAMECLEAR
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; WAIT_SPACE
+;;;;  GAMEOVER/GAMECLEAR処理共通
+;;;;  in hl:"PUSH SPACE KEY"のアドレス
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SCOPE WAIT_SPACE
+WAIT_SPACE::
+	push hl
+	ld hl,GAME_CONTROLLER
+	ld [hl],0xf0 ;VRAM書き込み
+	ld a,60
+	call WAIT
+
+	pop hl
+	call TEXT_COPY
+	ld hl,GAME_CONTROLLER
+	ld [hl],0xf0 ;VRAM書き込み
+	ld a,60
+	call WAIT
+
+	;スペースキーが押されるまで待つ
+loop:
+	call GTTRIG
+	jr z,loop
+	jp MAIN
+ENDSCOPE; WAIT_SPACE
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1884,25 +1938,8 @@ GAMEOVER::
 	ld hl,PLAYER_Y
 	ld [hl],NO_SPRITE_Y
 
-	ld hl,GAME_CONTROLLER
-	ld [hl],0xf0 ;VRAM書き込み
-	ld a,60
-	call WAIT
-
 	ld hl,text_push_space_key
-	call TEXT_COPY
-	ld hl,GAME_CONTROLLER
-	ld [hl],0xf0 ;VRAM書き込み
-	ld a,60
-	call WAIT
-
-	;スペースキーが押されるまで待つ
-loop:
-	call GTTRIG
-	jr z,loop
-
-	jp MAIN
-
+	jp WAIT_SPACE
 text_gameover:
 	DEFW VIEW_CODE_AREA+11+11*VIEW_CODE_AREA_WIDTH
 	DEFS "GAME OVER"

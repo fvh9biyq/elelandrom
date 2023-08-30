@@ -214,6 +214,12 @@ debug_code_msxcolor_data:
 	DEFB 0x12, 0x005; 0x3eb849
 	DEFB 0x00, 0x000; 0x000000
 
+debug_code_gameclear:
+	pop de ;debug_code_successの後のpop de
+	pop de ;call PASSWORD_CHECKに対応するret
+	pop de ;call TITLEに対応するret
+	jp GAMECLEAR
+
 debug_code:
 	DEFB 3
 	DEFS "MAP"
@@ -227,6 +233,9 @@ debug_code:
 	DEFB 8
 	DEFS "MSXCOLOR"
 	DEFW debug_code_msxcolor
+	DEFB 9
+	DEFS "GAMECLEAR"
+	DEFW debug_code_gameclear
 	DEFB 0 ; end of debug_code
 
 ENDSCOPE; PASSWORD_CHECK
