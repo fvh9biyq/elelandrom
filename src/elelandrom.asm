@@ -78,7 +78,16 @@ ENEMY_LIST := ENEMY_COUNT+1;
  ENEMY_SIZE := 12
  ENEMY_MAX_COUNT := 4 ;敵は最大4
 
-MAP_ID := ENEMY_LIST+ENEMY_SIZE*ENEMY_MAX_COUNT;
+BOSS_COUNT := ENEMY_LIST+ENEMY_SIZE*ENEMY_MAX_COUNT;
+BOSS_Status := BOSS_COUNT+1 ;ボスの状態
+ ; 0の時ボスは存在しないマップ
+ ; 1～3の時ボスが存在するマップ　ボスの位置のインデックス
+ ; 4の時ボスは死亡
+   BOSS_Status_Dead := 4
+BOSS_HP := BOSS_Status+1; ボスのHP 2バイト
+BOSS_DAMAGE_COUNT := BOSS_HP+2;
+
+MAP_ID := BOSS_DAMAGE_COUNT+1;
 DISABLED_EVENT_ID := MAP_ID+1;マップ移動後のxy座標を取得し、使用不可にする
 JUMP_COUNT := DISABLED_EVENT_ID+1 ; ジャンプ状態
   ;0の時着地　上ボタンを押していれば1へ　押していなければ下ブロックを調べ、地面でないなら落下
@@ -213,6 +222,23 @@ MUSICAL_SCALE::
 	DEFB 0x40 ; O6A 0x0b
 	DEFB 0x39 ; O6B 0x0c
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; BOSSの位置
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+BOSS_POSITION::
+	DEFB  6*8-1 ;yPos1
+	DEFB 14*8   ;xPos1
+	DEFB 10*8-1 ;yPos2
+	DEFB 21*8   ;xPos2
+	DEFB 10*8-1 ;yPos3
+	DEFB  7*8   ;xPos3
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; _MAXHEADDATAが04100h以下であるなら　↑のテーブルを見る際、下位1バイトだけ見ればいい
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+_MAXHEADDATA::
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; メイン
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -226,6 +252,7 @@ loop:
 	call JUMP_ENEMY ;敵JUMP処理
 	call CHECK_PLAYER_ATTACK ;プレイヤー攻撃判定
 	call CHECK_PLAYER_DAMAGE ;プレイヤーダメージ判定
+	call CHECK_BOSS ;ボス処理
 	call DOWN_DAMAGE_COUNT ;ダメージカウントをダウン
 	call CHECK_EVENT ;イベント確認
 	call CHECK_MAPMOVE ;画面端でマップ移動していないかチェック
@@ -250,7 +277,10 @@ skip_damage_effect:
 do_wait:
 	call WAIT
 
-;	jp GAMECLEAR
+	;ボス倒されたら
+	ld a,[BOSS_Status]
+	cp a,BOSS_Status_Dead
+	jp z,GAMECLEAR
 
 	ld a,[PLAYER_HP]
 	or a,a
@@ -757,7 +787,7 @@ not_skeleton:
 	inc hl ;PLAYER_X
 	ld a,[hl]
 	inc hl ;PLAYER_SPRITE
-	sub a,0
+;	sub a,0
 	bit 2,[hl]
 	jr nz,left_attack
 	;右向き
@@ -1033,6 +1063,291 @@ next:
 	pop de
 	ret
 ENDSCOPE; DIV3
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; in:[hl] y [hl+1] x
+;;;; out hl:VIEW_CODE_AREAのXY位置
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SCOPE POSXY_VIEW_CODE_AREA
+POSXY_VIEW_CODE_AREA::
+	ld e,[hl] ;スプライトy座標
+	inc hl
+	ld a,[hl] ;スプライトx座標
+	rrca ;スプライトx座標を1/8にすることでRAMアドレスになる
+	rrca
+	rrca
+	inc e
+	ld d,VIEW_CODE_AREA/256/4
+	ex de,hl
+	add hl,hl ;スプライトy座標を1/8*32、すなわち4倍にすることでRAMアドレスになる
+	add hl,hl
+	or a,l
+	ld l,a
+	ret
+ENDSCOPE; POSXY_VIEW_CODE_AREA
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; ボス処理
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SCOPE CHECK_BOSS
+CHECK_BOSS::
+	ld hl,BOSS_Status
+	ld a,[hl]
+	or a,a
+	ret z ;0の時ボスは存在しないマップ
+
+	dec hl ;BOSS_COUNT
+	ld a,[hl]
+	or a,a
+	call z,warp_boss ;ボス移動
+
+	;プレイヤー攻撃判定
+	call IS_ATTACK
+	call c,check_boss_damage
+	;プレイヤーダメージ判定
+	call check_boss_attack
+
+	ld hl,BOSS_COUNT
+	inc [hl]
+
+	ret
+
+;プレイヤー攻撃判定
+check_boss_damage:
+	; 剣の位置と敵の位置を比較し、ヒットしていればダメージを与える
+	call get_boss_yx
+
+	ld de,PLAYER_Y
+	ld a,[de]
+	add a,11 ;剣の下部分
+	sub a,[hl] ;敵yPosが剣の下部分より下ならヒットしない
+	ret c
+	cp a,5+32 ;剣の上部分 todoこの辺ちゃんと
+	ret nc
+	inc de ;PLAYER_X
+	ld a,[de]
+	inc de ;PLAYER_SPRITE
+;	sub a,0
+	ld c,a
+	ld a,[de]
+	and a,4
+	ld a,c
+	jr nz,left_attack
+	;右向き
+	add a,32+0
+left_attack:
+	inc hl
+	sub a,[hl] ;敵xPosが剣の右部分より右ならヒットしない
+	ret c
+	cp a,64
+	ret nc
+
+	;BOSSダメージエフェクト
+	ld a,[BOSS_Status]
+	call get_boss_view_code_area
+	ld a,230 ;「に」背景
+	call put_boss_line2
+
+	;BOSS HP減少
+	ld a,[PLAYER_LEVEL]
+	cp a,11 ;level max
+	jr c,not_max_level
+	;ボスには最大255*2ダメージ
+	ld hl,255*2
+	jr enemy_damage
+not_max_level:
+	ld de,PLAYER_ATTACK_POINT-2
+	add a,a
+	add a,e
+	ld e,a
+	ld a,[de]
+	ld h,0
+	ld l,a
+	ld a,[PLAYER_ITEMS]
+	and a,ITEM_SWORD
+	jr z,enemy_damage ;剣を持っているとダメージ2倍
+	inc e
+	ld a,[de]
+	ld e,a
+	ld d,0
+	add hl,de
+enemy_damage:
+	ld c,l
+	ld b,h
+	ld hl,BOSS_HP
+	ld e,[hl]
+	inc hl
+	ld d,[hl]
+	ex de,hl
+	or a,a
+	sbc hl,bc
+	jr nc,set_hp
+	ld hl,0
+set_hp:
+	ex de,hl
+	ld [hl],d
+	dec hl
+	ld [hl],e
+
+	;BOSS 倒したか
+	ld a,d
+	or a,e
+	jr nz,skip_boss_dead
+	ld hl,BOSS_Status
+	ld [hl],BOSS_Status_Dead
+skip_boss_dead:
+
+	;BOSS HP表示
+	ld hl,BOSS_HP
+	ld e,[hl]
+	inc hl
+	ld d,[hl]
+	ex de,hl
+	ld de,VIEW_CODE_AREA+14+23*VIEW_CODE_AREA_WIDTH
+	call WORD_TO_TEXT
+
+	ld hl,GAME_CONTROLLER
+	set GAME_CONTROLLER_DAMAGE_EFFECT_BIT,[hl] ;DAMAGE_EFFECT
+	set GAME_CONTROLLER_MAP_BIT,[hl]
+	set GAME_CONTROLLER_STATUS_BIT,[hl]
+
+	ret
+
+;プレイヤーダメージ判定
+check_boss_attack:
+	ret
+
+warp_boss:
+	;移動前のボスの位置を消す
+	ld a,[BOSS_Status]
+	call get_boss_view_code_area
+	ld a,0x5f ;_
+	call put_boss_line2
+
+	;ボス移動
+	ld hl,BOSS_Status
+	ld a,[hl]
+not_zero:
+	inc a
+	and a,0x03
+	jr z,not_zero
+	ld [hl],a
+
+	;ボス表示
+	call get_boss_view_code_area
+	ld a,220 ;ワ
+	call put_boss_line1
+	ld a,221 ;ン
+	call put_boss_line1
+	ld a,228 ;と
+	call put_boss_line1
+	ld a,229 ;な
+	call put_boss_line1
+
+	ld hl,BOSS_COUNT
+	ld [hl],0
+
+	ld hl,GAME_CONTROLLER
+	set GAME_CONTROLLER_MAP_BIT,[hl]
+
+	ret
+
+get_boss_yx:
+	;ボスの位置HLに
+	ld a,[BOSS_Status]
+	ld hl,BOSS_POSITION-2
+	add a,a
+	add a,l
+	ld l,a
+	ret
+
+get_boss_view_code_area:
+	call get_boss_yx
+	call POSXY_VIEW_CODE_AREA
+	ret
+
+put_boss_line1:
+	ld b,4
+loop1:
+	ld [hl],a
+	add a,2
+	inc hl
+	djnz loop1
+	ld a,VIEW_CODE_AREA_WIDTH-4
+	add a,l
+	ld l,a
+	ld a,h
+	adc a,0
+	ld h,a
+	ret
+
+put_boss_line2:
+	ld c,4
+loop3:
+	ld b,4
+loop2:
+	ld [hl],a
+	inc hl
+	djnz loop2
+	push af
+	ld a,VIEW_CODE_AREA_WIDTH-4
+	add a,l
+	ld l,a
+	ld a,h
+	adc a,0
+	ld h,a
+	pop af
+	dec c
+	jr nz,loop3
+	ret
+
+ENDSCOPE; CHECK_BOSS
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; 2バイトのデータを10進テキストにして指定アドレスにコピー
+;;;;   in hl 2バイトのデータ
+;;;;      hl コピー先アドレス
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SCOPE WORD_TO_TEXT
+WORD_TO_TEXT::
+	push hl
+	exx
+	pop hl
+	ld c,0x30
+	ld de,1000
+	call put_text
+	ld de,100
+	call put_text
+	ld de,10
+	call put_text
+	ld a,l
+	add a,0x30
+	exx
+	ld [de],a
+	ret
+
+put_text:
+	ld a,0x30-1
+loop:
+	inc a
+	or a,a
+	sbc hl,de
+	jr nc,loop
+	add hl,de
+	cp a,c
+	jr z,put_space
+	ld c,0xff
+	jr put_1char
+put_space:
+	xor a,a
+put_1char:
+	exx
+	ld [de],a
+	inc de
+	exx
+skip_put:
+	ret
+ENDSCOPE; WORD_TO_TEXT
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1311,19 +1626,19 @@ event_id_is_not_getitem:
 check_xy_pos:
 	inc hl
 
-	ld de,PLAYER_X
+	ld de,PLAYER_Y
 	ld a,[de]
-	dec de
-	add a,4
-	sub a,[hl] ;イベントデータ3バイト目はスプライトx座標
+	sub a,[hl] ;イベントデータ3バイト目はスプライトy座標
 	inc hl
+	jr nz,event_skip_mode
+
+	inc de ;PLAYER_X
+	ld a,[de]
+	add a,4
+	sub a,[hl] ;イベントデータ4バイト目はスプライトx座標
 	jr c,event_skip_mode
 	cp a,8
 	jr nc,event_skip_mode
-
-	ld a,[de]
-	sub a,[hl] ;イベントデータ4バイト目はスプライトy座標
-	jr nz,event_skip_mode
 
 	ld a,c
 	ret
@@ -1334,17 +1649,28 @@ ENDSCOPE; GET_EVENT_ID
 ;;;; マップ表示 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SCOPE SET_MAPDATA
+boss_data:
+	DEFB 3 ;BOSS_Status
+	DEFW 4096 ;BOSS_HP
+
 SET_MAPDATA::
 
-	;敵データをクリア
+	;敵、ボスデータをクリア
 	ld hl,ENEMY_INDEX
-	ld [hl],0
-	ld de,ENEMY_INDEX+1
-	ld bc,ENEMY_SIZE*ENEMY_MAX_COUNT+2-1
-	ldir
+	ld bc,BOSS_DAMAGE_COUNT-ENEMY_INDEX
+	call CLEAR_AREA
 
 	;敵データをコピー
 	call GET_MAP_ADDR
+	bit 1,[hl] ;ラスボスのマップ
+	jr z,skip_boss
+	push hl
+	ld hl,boss_data
+	ld de,BOSS_Status
+	ld bc,3
+	ldir
+	pop hl
+skip_boss:
 	dec hl
 	ld c,[hl]
 	dec c
@@ -1429,19 +1755,8 @@ event_id_is_not_getitemnoenemy:
 	and a,[hl]
 	jr nz,event_next ;イベントデータ2バイト目はアイテムデータ　アイテムを持っていれば表示に変更なし
 	inc hl
-	ld a,[hl] ;イベントデータ3バイト目はスプライトx座標
-	rrca ;スプライトx座標を1/8にすることでRAMアドレスになる
-	rrca
-	rrca
-	inc hl
-	ld e,[hl] ;イベントデータ4バイト目はスプライトy座標
-	inc e
-	ld d,VIEW_CODE_AREA/256/4
-	ex de,hl
-	add hl,hl ;スプライトy座標を1/8*32、すなわち4倍にすることでRAMアドレスになる
-	add hl,hl
-	or a,l
-	ld l,a
+
+	call POSXY_VIEW_CODE_AREA ;イベントデータ3,4バイト目からRAMアドレスを取得
 
 	ld a,c
 	rlca
@@ -1867,6 +2182,24 @@ ENDSCOPE; CALC_PLAYER_STATUS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SCOPE GAMECLEAR
 GAMECLEAR::
+	ld bc,BGM_DATA_CLEAR
+	call SET_BGM_CURRENT
+
+	di
+	ld bc,0x0807
+	call BIOS_WRTVDP
+	ei
+
+	ld hl,GAME_CONTROLLER
+	ld [hl],0xf0 ;VRAM書き込み
+	ld a,60
+	call WAIT
+
+	di
+	ld bc,0x0007
+	call BIOS_WRTVDP
+	ei
+
 	;スプライト消去
 	ld hl,PLAYER_Y
 	ld [hl],NO_SPRITE_Y
@@ -1877,9 +2210,6 @@ GAMECLEAR::
 put_text_loop:
 	call TEXT_COPY
 	djnz put_text_loop
-
-	ld bc,BGM_DATA_CLEAR
-	call SET_BGM_CURRENT
 
 	ld hl,text_push_space_key
 	jp WAIT_SPACE
@@ -1966,8 +2296,8 @@ ENDSCOPE; GAMEOVER
 ;      bit0-5:実行するアクションを指定　0:アクションなし、1:アイテム取得、2:アイテム取得（敵全滅時）、3:パスワード出力、4以上:ワープ
 ;             ワープはそれぞれ別のイベントIDが振られており、WARP_LISTに移動先が記録されている
 ; 　+1 アイテム　PLAYER_ITEMSのbit　アイテムが無関係なら0
-; 　+2 スプライトx座標 xy座標とプレイヤーのxy座標を比較し近い位置にあればイベント実行、画面表示に変更がある場合はxy座標を元にVIEW_CODE_AREAに文字出力
-; 　+3 スプライトy座標 
+; 　+2 スプライトy座標 xy座標とプレイヤーのxy座標を比較し近い位置にあればイベント実行、画面表示に変更がある場合はxy座標を元にVIEW_CODE_AREAに文字出力
+; 　+3 スプライトx座標
 ; map マップデータ
 ; 　ランレングス圧縮でデータが収められている
 ; enemy 敵データ　最大4(ENEMY_MAX_COUNT)

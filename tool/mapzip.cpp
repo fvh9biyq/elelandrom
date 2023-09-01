@@ -392,8 +392,8 @@ void MapManager::write(const char *mapTblFileName,const char *mapDataFileName,Ma
           }
           ofs << "\tDEFB " << v << " ;event" << std::endl;
           ofs << "\tDEFB " << static_cast<int>(eventData.item) << " ;item" << std::endl;
-          ofs << "\tDEFB " << static_cast<int>(eventData.x)*8 << " ;x" << std::endl;
           ofs << "\tDEFB " << static_cast<int>(eventData.y)*8-1 << " ;y" << std::endl;
+          ofs << "\tDEFB " << static_cast<int>(eventData.x)*8 << " ;x" << std::endl;
         }
         ofs << "\tDEFB " << 0 << " ;end of eventData" << std::endl;
       }
