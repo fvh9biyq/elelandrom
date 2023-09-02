@@ -150,6 +150,7 @@ PLAYER_ITEMS := PLAYER_SPRITE+1 ;各アイテム 盾(bit7)、剣(bit6)、鍵(bit
  ITEM_FAIRY := 0x02 ;妖精(bit1) 6番
 
  ITEM_SHIELD_BIT := 7
+ ITEM_SWORD_BIT := 6
  ITEM_HAMMER_BIT := 3
  ITEM_FAIRY_BIT := 1
 
@@ -482,6 +483,22 @@ ENDSCOPE; GAME_INIT
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SCOPE MOVE_PLAYER
 MOVE_PLAYER::
+	;スペースキーの判定
+	call GTTRIG
+	ld hl,ATTACK_COUNT
+	ld a,[hl]
+	jr nz,attack
+	; スペースキーを押していなければ
+	ld a,-1
+attack:
+	; スペースキーを押していれば
+	inc a
+	cp a,ATTACK_COUNT_END
+	jr c,set_attack_count
+	ld a,ATTACK_COUNT_END
+set_attack_count:
+	ld [hl],a
+
 	call GTSTCK
 	push af
 	call z,PLAYER_HEAL ;何も押されていなければプレイヤー回復
@@ -749,15 +766,6 @@ ENDSCOPE; JUMP_ENEMY
 ;;;; プレイヤー攻撃判定
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SCOPE CHECK_PLAYER_ATTACK
-CHECK_PLAYER_ATTACK::
-	call GTTRIG
-	ld hl,ATTACK_COUNT
-	ld a,[hl]
-	jr nz,attack
-	; スペースキーを押していなければ
-	xor a,a
-	jr set_attack_count
-
 next_enemy:
 	ld de,ENEMY_SIZE
 	add ix,de
@@ -765,15 +773,7 @@ next_enemy:
 	djnz loop
 	ret
 
-attack:
-	; スペースキーを押していれば
-	inc a
-	cp a,ATTACK_COUNT_END
-	jr c,set_attack_count
-	ld a,ATTACK_COUNT_END
-set_attack_count:
-	ld [hl],a
-
+CHECK_PLAYER_ATTACK::
 	call IS_ATTACK
 	ret nc ;剣を出していない
 
@@ -941,6 +941,10 @@ PLAYER_HEAL::
 	ld hl,PLAYER_DAMAGE_COUNT
 	or a,a
 	ret nz
+
+	;剣を振っている間は回復しない
+	call IS_ATTACK
+	ret c
 
 	ld a,0x08 ;回復速度
 	ld hl,PLAYER_ITEMS

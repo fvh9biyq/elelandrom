@@ -259,7 +259,18 @@ right:
 	ld a,24*4 ;剣のスプライト
 	add a,e
 	out [c],a
+
+	ld hl,PLAYER_EXP
+	ld a,[hl]
+	inc a
+	ld a,8 ;経験値255なら剣の色S2=8
+	jr z,put_sword_color
+	dec hl ; PLAYER_ITEMS
+	bit ITEM_SWORD_BIT,[hl]
+	ld a,10
+	jr nz,put_sword_color ;剣を持っていると剣の色S2=10
 	ld a,15
+put_sword_color:
 	or a,d
 	out [c],a ;画面端で剣を出した際に表示されるように左向きの場合、カラーコードのbit7をセットする
 
