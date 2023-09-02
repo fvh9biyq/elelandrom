@@ -58,9 +58,6 @@ VSYNC_START::
 	jr z,skip_wait_count
 	dec [hl]
 skip_wait_count:
-	inc hl ; INTERVAL_TIMER
-	inc [hl]
-
 	inc hl ; BGM_COUNT
 	ld a,[hl]
 	or a,a
