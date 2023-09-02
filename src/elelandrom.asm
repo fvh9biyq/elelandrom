@@ -992,7 +992,7 @@ loop:
 	push bc
 	ld a,[ix+ENEMY_HP]
 	or a,a
-	jp z,next_enemy ;HP=0の敵は判定しない
+	jr z,next_enemy ;HP=0の敵は判定しない
 	ld a,[ix+ENEMY_DAMAGE_COUNT] ;ダメージカウント
 	or a,a
 	jr nz,next_enemy ;ダメージを受けている敵は判定なし
@@ -1010,12 +1010,25 @@ loop:
 	cp a,26
 	jr nc,next_enemy
 
-	;ダメージエフェクト
+	;ダメージ
+	ld b,[ix+ENEMY_STR]
+	call PLAYER_DAMAGE
+
+next_enemy:
+	ld de,ENEMY_SIZE
+	add ix,de
+	pop bc
+	djnz loop
+
+	ret
+
+;;;;;;;;;;;;;;;
+;;;; プレイヤーダメージ
+; in b:敵攻撃力
+PLAYER_DAMAGE::
 	ld  hl,GAME_CONTROLLER
 	set GAME_CONTROLLER_DAMAGE_EFFECT_BIT,[hl] ;DAMAGE_EFFECT
 
-	;ダメージ
-	ld b,[ix+ENEMY_STR]
 	ld a,[PLAYER_EXP]
 	inc a
 	jr nz,check_item_shield
@@ -1045,14 +1058,8 @@ skip_item_shield:
 set_hp:
 	ld [hl],a
 	call PUT_STATUS
-
-next_enemy:
-	ld de,ENEMY_SIZE
-	add ix,de
-	pop bc
-	djnz loop
-
 	ret
+
 ENDSCOPE; CHECK_PLAYER_DAMAGE
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1236,6 +1243,39 @@ skip_boss_dead:
 
 ;プレイヤーダメージ判定
 check_boss_attack:
+	;PLAYER_NODAMAGEが1の時ダメージを受けない
+	ld hl,PLAYER_NODAMAGE
+	ld a,[hl]
+	or a,a
+	ret nz
+
+	;ダメージ受けている中はダメージ判定しない
+	dec hl ;PLAYER_DAMAGE_COUNT
+	ld a,[hl]
+	or a,a
+	ret nz
+
+	;ボスはダメージを受けていても判定あり
+	;プレイヤーの位置と敵の位置を比較し、ヒットしていればダメージを受ける
+	call get_boss_yx
+	ld d,[hl] ;boss_y
+	inc hl
+	ld e,[hl] ;boss_x
+	ld hl,PLAYER_Y
+	ld a,[hl]
+	sub a,d ;boss_y
+	add a,16
+	cp a,32+16
+	ret nc
+	inc hl ;PLAYER_X
+	ld a,[hl]
+	sub a,e ;boss_x
+	add a,13
+	cp a,26+16
+	ret nc
+
+	ld b,128 ;ボス攻撃力
+	call PLAYER_DAMAGE
 	ret
 
 warp_boss:
