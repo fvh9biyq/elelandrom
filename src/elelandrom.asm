@@ -1265,6 +1265,47 @@ not_zero:
 	ld a,229 ;な
 	call put_boss_line1
 
+	;敵データコピー
+	call GET_MAP_ADDR
+	call COPY_ENEMY_DATA
+	call get_boss_yx
+	ex de,hl
+	ld hl,ENEMY_LIST+ENEMY_yPos
+
+	ld a,[ENEMY_COUNT]
+	or a,a
+	jr z,skip_enemy_copy
+	ld b,a
+loop_enemy_copy:
+	push bc
+	ld a,[de] ;boss_y
+	add a,[hl]
+	ld [hl],a ;ENEMY_yPos
+	inc hl ;ENEMY_xPos
+	inc de ;boss_x
+	ld a,[de]
+	add a,[hl]
+	ld [hl],a ;ENEMY_yPos
+	ld bc,ENEMY_xMax-ENEMY_xPos
+	add hl,bc ;ENEMY_xMax
+	ld a,[de]
+	add a,[hl]
+	ld [hl],a ;ENEMY_xMax
+	inc hl
+	ld a,[de]
+	add a,[hl]
+	jr nz,set_enemy_xmin
+	inc a ;ENEMY_xMinが0の時は1にする
+set_enemy_xmin:
+	ld [hl],a ;ENEMY_xMin
+	dec de ;boss_y
+	ld bc,ENEMY_SIZE-ENEMY_xMin+ENEMY_yPos
+	add hl,bc
+
+	pop bc
+	djnz loop_enemy_copy
+
+skip_enemy_copy:
 	ld hl,BOSS_COUNT
 	ld [hl],0
 
@@ -1674,6 +1715,22 @@ boss_data:
 	DEFB 3 ;BOSS_Status
 	DEFW 4096 ;BOSS_HP
 
+;  hl:GET_MAP_ADDR
+COPY_ENEMY_DATA::
+	dec hl
+	ld c,[hl]
+	dec c
+	ret z
+	ld a,l
+	sub a,c
+	ld l,a
+	ld a,h
+	sbc a,0
+	ld h,a
+	ld de,ENEMY_COUNT
+	ldir
+	ret
+
 SET_MAPDATA::
 
 	;敵、ボスデータをクリア
@@ -1692,19 +1749,7 @@ SET_MAPDATA::
 	ldir
 	pop hl
 skip_boss:
-	dec hl
-	ld c,[hl]
-	dec c
-	jr z,skip_copy_enemy
-	ld a,l
-	sub a,c
-	ld l,a
-	ld a,h
-	sbc a,0
-	ld h,a
-	ld de,ENEMY_COUNT
-	ldir
-skip_copy_enemy:
+	call COPY_ENEMY_DATA
 SET_MAPDATA_ONLY::
 	;マップデータ処理
 	call GET_MAP_ADDR

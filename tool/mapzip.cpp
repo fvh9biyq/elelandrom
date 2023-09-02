@@ -351,8 +351,8 @@ void MapManager::write(const char *mapTblFileName,const char *mapDataFileName,Ma
           ofs << "\tDEFB " << static_cast<int>(enemyData.exp) << " ;exp" << std::endl;
           ofs << "\tDEFB " << static_cast<int>(enemyData.hp) << " ;hp" << std::endl;
           ofs << "\tDEFB " << 0 << " ;無敵カウント" << std::endl;
-          ofs << "\tDEFB " << static_cast<int>(enemyData.y)*8-1 << " ;y" << std::endl;
-          ofs << "\tDEFB " << static_cast<int>(enemyData.x)*8+(isBoss ? 0 : 8) << " ;x" << std::endl;
+          ofs << "\tDEFB " << static_cast<int>(enemyData.y)*8+(isBoss ? -80 : -1) << " ;y" << std::endl;
+          ofs << "\tDEFB " << static_cast<int>(enemyData.x)*8+(isBoss ? -21*8 : 8) << " ;x" << std::endl;
           ofs << "\tDEFB " << (static_cast<int>(enemyData.sprite[0]) & 0xfc )*4 << " ;sprite" << std::endl; //元プラグラムとスプライトパターンの番号が異なる
           ofs << "\tDEFB " << static_cast<int>(enemyData.colorCode) << " ;colorCode" << std::endl;
           int status{0};
@@ -375,8 +375,8 @@ void MapManager::write(const char *mapTblFileName,const char *mapDataFileName,Ma
           }
           ofs << "\tDEFB " << status << " ;status" << std::endl;
           ofs << "\tDEFB " << 0 << " ;JumpCount" << std::endl;
-          ofs << "\tDEFB " << std::max(static_cast<int>(enemyData.xMax),static_cast<int>(enemyData.x))*8 << " ;xMax" << std::endl;
-          ofs << "\tDEFB " << std::min(static_cast<int>(enemyData.xMax),static_cast<int>(enemyData.x))*8 << " ;xMin" << std::endl;
+          ofs << "\tDEFB " << std::max(static_cast<int>(enemyData.xMax),static_cast<int>(enemyData.x))*8+(isBoss ? -21*8 : 0) << " ;xMax" << std::endl;
+          ofs << "\tDEFB " << std::min(static_cast<int>(enemyData.xMax),static_cast<int>(enemyData.x))*8+(isBoss ? -21*8 : 0) << " ;xMin" << std::endl;
         }
         ofs << "\tDEFB " << (mapData.enemyDataList.size()*ENEMY_SIZE+1)+1 << " ;enemy data size" << std::endl; //コピーするサイズ+1
         ofs << std::endl;
