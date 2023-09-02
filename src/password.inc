@@ -12,6 +12,10 @@ EVENT_PASSWORD::
 	ld hl,VIEW_CODE_AREA+0+23*VIEW_CODE_AREA_WIDTH
 	ld de,PLAYER_LEVEL
 	ld a,[de]
+	cp a,99
+	jr nz,not_max_level
+	ld a,10
+not_max_level:
 	call PUT_HEX4
 	inc de
 	inc de
