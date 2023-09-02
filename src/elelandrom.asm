@@ -80,7 +80,7 @@ ENEMY_LIST := ENEMY_COUNT+1;
  ENEMY_SIZE := 12
  ENEMY_MAX_COUNT := 4 ;敵は最大4
 
-BOSS_COUNT := ENEMY_LIST+ENEMY_SIZE*ENEMY_MAX_COUNT;
+BOSS_COUNT := ENEMY_LIST+ENEMY_SIZE*ENEMY_MAX_COUNT;ボスの移動カウンタ
 BOSS_Status := BOSS_COUNT+1 ;ボスの状態
  ; 0の時ボスは存在しないマップ
  ; 1～3の時ボスが存在するマップ　ボスの位置のインデックス
@@ -1146,6 +1146,10 @@ CHECK_BOSS::
 
 ;プレイヤー攻撃判定
 check_boss_damage:
+	ld a,[BOSS_DAMAGE_COUNT]
+	or a,a
+	ret nz ;ボスダメージ中なら判定なし
+
 	; 剣の位置と敵の位置を比較し、ヒットしていればダメージを与える
 	call get_boss_yx
 
@@ -1179,6 +1183,9 @@ left_attack:
 	call get_boss_view_code_area
 	ld a,230 ;「に」背景
 	call put_boss_line2
+
+	ld hl,BOSS_DAMAGE_COUNT
+	ld [hl],4 ;ボスダメージ
 
 	;BOSS HP減少
 	ld a,[PLAYER_LEVEL]
@@ -1283,6 +1290,10 @@ check_boss_attack:
 	ret
 
 warp_boss:
+	;ワープするとダメージカウンタ0
+	xor a,a
+	ld [BOSS_DAMAGE_COUNT],a
+
 	;移動前のボスの位置を消す
 	ld a,[BOSS_Status]
 	call get_boss_view_code_area
@@ -1299,15 +1310,7 @@ not_zero:
 	ld [hl],a
 
 	;ボス表示
-	call get_boss_view_code_area
-	ld a,220 ;ワ
-	call put_boss_line1
-	ld a,221 ;ン
-	call put_boss_line1
-	ld a,228 ;と
-	call put_boss_line1
-	ld a,229 ;な
-	call put_boss_line1
+	call PUT_BOSS
 
 	;敵データコピー
 	call GET_MAP_ADDR
@@ -1353,9 +1356,23 @@ skip_enemy_copy:
 	ld hl,BOSS_COUNT
 	ld [hl],0
 
+	ret
+
+;;;;;;;;;;;;;;;;;;;;;;;
+;ボス表示
+PUT_BOSS::
+	call get_boss_view_code_area
+	ld a,220 ;ワ
+	call put_boss_line1
+	ld a,221 ;ン
+	call put_boss_line1
+	ld a,228 ;と
+	call put_boss_line1
+	ld a,229 ;な
+	call put_boss_line1
+
 	ld hl,GAME_CONTROLLER
 	set GAME_CONTROLLER_MAP_BIT,[hl]
-
 	ret
 
 get_boss_yx:
@@ -1482,6 +1499,16 @@ next_enemy:
 	dec a
 	ld [hl],a
 skip_player:
+
+	ld hl,BOSS_DAMAGE_COUNT
+	ld a,[hl]
+	or a,a
+	jr z,skip_boss
+	dec a
+	ld [hl],a
+	jr nz,skip_boss
+	call PUT_BOSS
+skip_boss:
 
 	ret
 ENDSCOPE; DOWN_DAMAGE_COUNT
