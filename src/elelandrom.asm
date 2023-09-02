@@ -57,12 +57,14 @@ ENEMY_LIST := ENEMY_COUNT+1;
  ; +8 ENEMY_Status　bit0:0=右向き,1=左向き　bit1:1=横移動する　bit2:1=ジャンプする　bit3:1=ガイコツ　bit4:1=オオカミ
   ENEMY_Status_ISRIGHT_BIT := 0
   ENEMY_Status_JUMP_BIT := 2
-  ENEMY_Status_Skeleton := 3
-  ENEMY_Status_Wolf := 4
+  ENEMY_Status_Skeleton_BIT := 3
+  ENEMY_Status_Wolf_BIT := 4
+  ENEMY_Status_BatWithBoss_BIT :=5 ;ボス面のコウモリ
 
   ENEMY_Status_ISRIGHT := 1
   ENEMY_Status_MOVE := 2
   ENEMY_Status_JUMP := 4
+  ENEMY_Status_BatWithBoss := 32
  ENEMY_JumpCount := +9
  ; +9 JumpCount
  ;    0の時着地
@@ -601,7 +603,7 @@ current_enemy:
 
 	ld a,[hl]
 	or a,a
-	jr z,next_enemy ;HP=0の敵は移動しない
+	jp z,next_enemy ;HP=0の敵は移動しない
 
 	push hl
 	pop ix
@@ -611,7 +613,7 @@ current_enemy:
 	jr nz,next_enemy ;ダメージを受けている敵は移動＆足踏みしない
 
 	ld a,[ix+ENEMY_Status-ENEMY_HP] ;ENEMY_Status
-	and a,ENEMY_Status_MOVE+ENEMY_Status_JUMP+ENEMY_Status_ISRIGHT
+	and a,ENEMY_Status_MOVE+ENEMY_Status_JUMP+ENEMY_Status_ISRIGHT+ENEMY_Status_BatWithBoss
 	jr z,next_enemy ;横移動もジャンプもしない場合は次の敵
 	bit ENEMY_Status_JUMP_BIT,a
 	jr z,not_jump
@@ -623,7 +625,13 @@ current_enemy:
 	inc [ix+ENEMY_JumpCount-ENEMY_HP] ; ジャンプ開始
 	jr next_enemy
 not_jump:
+	ld c,a
+	bit ENEMY_Status_BatWithBoss_BIT,a
+	jr z,not_batwithboss
+	inc [ix+ENEMY_yPos-ENEMY_HP] ;Y座標+1 ボス面のコウモリは斜めに移動する事にする
+not_batwithboss:
 
+	ld b,[ix+ENEMY_xMin-ENEMY_HP] ;xMin
 	and a,ENEMY_Status_ISRIGHT+ENEMY_Status_MOVE
 	rra
 	jr nc,right ;右向き
@@ -631,6 +639,7 @@ not_jump:
 	add a,[ix+ENEMY_xPos-ENEMY_HP] ;X座標
 	cp a,[ix+ENEMY_xMin-ENEMY_HP] ;xMin
 	ccf
+	ld b,[ix+ENEMY_xMax-ENEMY_HP] ;xMax
 	jr set_pos
 right:
 	add a,[ix+ENEMY_xPos-ENEMY_HP] ;X座標
@@ -639,7 +648,19 @@ set_pos:
 	jr nc,turn
 	ld [ix+ENEMY_xPos-ENEMY_HP],a ;X座標
 	jr step_enemy
+warp_bat:
+	sub a,b
+	bit 7,a
+	jr nz,set_y
+	neg
+set_y:
+	add a,[ix+ENEMY_yPos-ENEMY_HP]
+	ld [ix+ENEMY_yPos-ENEMY_HP],a
+	ld [ix+ENEMY_xPos-ENEMY_HP],b
+	jr step_enemy
 turn:
+	bit ENEMY_Status_BatWithBoss_BIT,c
+	jr nz,warp_bat
 	ld a,[ix+ENEMY_Status-ENEMY_HP] ;ENEMY_Status
 	xor a,ENEMY_Status_ISRIGHT
 	ld [ix+ENEMY_Status-ENEMY_HP],a ;ENEMY_Status
@@ -769,7 +790,7 @@ loop:
 	jr nz,next_enemy ;ダメージを受けている敵は攻撃判定なし
 
 	;ガイコツはハンマー無しだとダメージを与えられない
-	bit ENEMY_Status_Skeleton,[ix+ENEMY_Status]
+	bit ENEMY_Status_Skeleton_BIT,[ix+ENEMY_Status]
 	jr z,not_skeleton
 	ld hl,PLAYER_ITEMS
 	bit ITEM_HAMMER_BIT,[hl]
@@ -799,7 +820,7 @@ left_attack:
 	jr nc,next_enemy
 
 	;オオカミは吹っ飛ばない(であってる？)
-	bit ENEMY_Status_Wolf,[ix+ENEMY_Status]
+	bit ENEMY_Status_Wolf_BIT,[ix+ENEMY_Status]
 	jr nz,skip_knock_back
 
 	;敵吹っ飛ぶ

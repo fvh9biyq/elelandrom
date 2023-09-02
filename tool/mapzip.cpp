@@ -346,12 +346,13 @@ void MapManager::write(const char *mapTblFileName,const char *mapDataFileName,Ma
         constexpr std::size_t ENEMY_SIZE = 12;
         ofs << "\tDEFB " << mapData.enemyDataList.size() << " ;ENEMY_COUNT" << std::endl;
         for(const auto &enemyData: mapData.enemyDataList){
+          const bool isBoss{ mapData.mode.test(static_cast<std::size_t>(MapData::Mode::LAST_BOSS)) };
           ofs << "\tDEFB " << static_cast<int>(enemyData.str) << " ;str" << std::endl;
           ofs << "\tDEFB " << static_cast<int>(enemyData.exp) << " ;exp" << std::endl;
           ofs << "\tDEFB " << static_cast<int>(enemyData.hp) << " ;hp" << std::endl;
           ofs << "\tDEFB " << 0 << " ;無敵カウント" << std::endl;
           ofs << "\tDEFB " << static_cast<int>(enemyData.y)*8-1 << " ;y" << std::endl;
-          ofs << "\tDEFB " << static_cast<int>(enemyData.x)*8+8 << " ;x" << std::endl;
+          ofs << "\tDEFB " << static_cast<int>(enemyData.x)*8+(isBoss ? 0 : 8) << " ;x" << std::endl;
           ofs << "\tDEFB " << (static_cast<int>(enemyData.sprite[0]) & 0xfc )*4 << " ;sprite" << std::endl; //元プラグラムとスプライトパターンの番号が異なる
           ofs << "\tDEFB " << static_cast<int>(enemyData.colorCode) << " ;colorCode" << std::endl;
           int status{0};
@@ -368,10 +369,14 @@ void MapManager::write(const char *mapTblFileName,const char *mapDataFileName,Ma
           if( 10<=enemyData.sprite[0] && enemyData.sprite[0]<=13 ){
             status += 16;//オオカミ
           }
+          if( isBoss ){
+            status += 32;//ボス面のコウモリ
+            status += 16;//ノックバックしない
+          }
           ofs << "\tDEFB " << status << " ;status" << std::endl;
           ofs << "\tDEFB " << 0 << " ;JumpCount" << std::endl;
-          ofs << "\tDEFB " << static_cast<int>(enemyData.xMax)*8 << " ;xMax" << std::endl;
-          ofs << "\tDEFB " << static_cast<int>(enemyData.x)*8 << " ;xMin" << std::endl;
+          ofs << "\tDEFB " << std::max(static_cast<int>(enemyData.xMax),static_cast<int>(enemyData.x))*8 << " ;xMax" << std::endl;
+          ofs << "\tDEFB " << std::min(static_cast<int>(enemyData.xMax),static_cast<int>(enemyData.x))*8 << " ;xMin" << std::endl;
         }
         ofs << "\tDEFB " << (mapData.enemyDataList.size()*ENEMY_SIZE+1)+1 << " ;enemy data size" << std::endl; //コピーするサイズ+1
         ofs << std::endl;
