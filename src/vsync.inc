@@ -52,6 +52,13 @@ VSYNC_START::
 	di
 	push af
 	push hl
+	ld hl,CHGET_COUNT
+	ld a,[hl]
+	or a,a
+	jr z,skip_chget_count
+	dec [hl]
+skip_chget_count:
+
 	ld hl,WAIT_COUNT
 	ld a,[hl]
 	or a,a

@@ -132,7 +132,10 @@ BGM_CURRENT := BGM_COUNT+1 ; 現在処理中のBGMの位置
 BGM_COUNT_DEFAULT := BGM_CURRENT+2 ;
 BGM_VOLUME := BGM_COUNT_DEFAULT+1 ; BGMボリューム
 
-PLAYER_Y := BGM_VOLUME+1 ; +0 Y座標
+CHGET_SAVE := BGM_VOLUME+1 ;前回のCHGET結果
+CHGET_COUNT := CHGET_SAVE+1 ;
+
+PLAYER_Y := CHGET_COUNT+1 ; +0 Y座標
  NO_SPRITE_Y := 208 ;Y座標をこの値にするとその面以降のスプライトは表示されない
  END_SPRITE_Y := 192;スプライトを画面外においやる
 PLAYER_X := PLAYER_Y+1 ; +1 X座標
@@ -355,7 +358,7 @@ loop:
 	ret nz
 	call BIOS_CHSNS
 	jr z,loop
-	call BIOS_CHGET
+	call CHGET
 	cp a,0x0D ;リターンキーを押すとパスワード入力
 	jr nz,loop
 
@@ -372,10 +375,7 @@ input_passward_loop:
 	ld a,0xf0 ;GAME_CONTROLLER_WRITE_BITからGAME_CONTROLLER_STATUS_BIT
 	ld [GAME_CONTROLLER],a
 no_input:
-	ld a,12
-	call WAIT ;一定時間待つ
-	call BIOS_KILBUF ;WAIT処理中の入力をクリア
-	call BIOS_CHGET ;キーボード入力があるまで待つ
+	call CHGET ;キーボード入力があるまで待つ
 	cp a,0x0D ;リターンキーを押すと入力終了
 	jr z,input_end
 	cp a,0x08 ;BSキーを押すと1つ戻る
@@ -443,6 +443,28 @@ text_input_passward:
 	DEFS "      INPUT PASSWORD     "
 	DEFB 0
 ENDSCOPE; TITLE
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;; キーボード入力
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SCOPE CHGET
+CHGET::
+	call BIOS_CHGET ;キーボード入力があるまで待つ
+	ld hl,CHGET_SAVE
+	cp a,[hl]
+	jr nz,save
+	inc hl ;CHGET_COUNT
+	ld a,[hl]
+	or a,a
+	jr nz,CHGET
+	dec hl
+	ld a,[hl]
+save:
+	ld [hl],a ;CHGET_SAVE
+	inc hl ;CHGET_COUNT
+	ld [hl],12
+	ret
+ENDSCOPE; CHGET
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; 画面初期化
