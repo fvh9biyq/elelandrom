@@ -23,9 +23,16 @@ DEPS := $(DEPS_SRCS:%=$(BUILD_DIR)/%.d)
 
 .PHONY: clean all mapzip msxcolor tool
 
-all: $(BUILD_DIR)/$(TARGET).rom tool $(MAPTBL_FILES) $(MAPDATA_FILES)
+all: rom bin tool $(MAPTBL_FILES) $(MAPDATA_FILES)
 
+rom: $(BUILD_DIR)/$(TARGET).rom
 $(BUILD_DIR)/%.rom: $(SRC_DIRS)/%.asm $(BUILD_DIR)/mapzip $(MAPTBL_FILES) $(MAPDATA_FILES) $(INC_FILES)
+	$(MKDIR_P) $(dir $@)
+	$(Z80) $< $@
+	grep '^_' zma.sym
+
+bin: $(BUILD_DIR)/eleland.bin
+$(BUILD_DIR)/eleland.bin: $(SRC_DIRS)/bload.asm $(BUILD_DIR)/mapzip $(MAPTBL_FILES) $(MAPDATA_FILES) $(INC_FILES)
 	$(MKDIR_P) $(dir $@)
 	$(Z80) $< $@
 	grep '^_' zma.sym

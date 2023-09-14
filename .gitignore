@@ -1,4 +1,5 @@
 build/
 !build/elelandrom.rom
+!build/eleland.bin
 zma.log
 zma.sym
