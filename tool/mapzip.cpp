@@ -86,6 +86,7 @@ struct MapData{
  * マップデータの書き込み
  */
 struct MapWriter{
+  virtual void checkMapData(const std::vector<MapData>& mapDataList){};
   virtual void writeMapData(const std::vector<unsigned char>& map,std::ofstream& ofs)=0;
 };
 
@@ -98,6 +99,7 @@ class MapManager{
   unsigned char toByte(const std::string& str,std::size_t index) const;
   unsigned char toInt(const std::string& str,std::size_t index) const;
   unsigned char toMSXChar(std::int64_t a) const;
+  unsigned char rmUnnecessaryChar(unsigned char a) const;
 public:
   MapManager() : mapDataList_{} {}
   void read(const char *filename );
@@ -140,6 +142,20 @@ unsigned char MapManager::toMSXChar(std::int64_t a) const{
     return 0;
   }
   return std::distance(std::begin(toMSXCharList), it);
+}
+
+/**
+ * マップからワープ用のキャラを消す
+ */
+unsigned char MapManager::rmUnnecessaryChar(unsigned char a) const{
+  switch(a){
+  case 'u':
+  case 'r':
+  case 't':
+    return 's';
+  default:
+    return a;
+  }
 }
 
 void MapManager::read(const char *filename ){
@@ -190,14 +206,14 @@ void MapManager::read(const char *filename ){
           a=( a << 6 ) + (c & 0x3f);
           --restByte;
           if( restByte==0 ){
-            mapData.map.emplace_back(toMSXChar(a));
+            mapData.map.emplace_back(rmUnnecessaryChar(toMSXChar(a)));
             a=0;
           }
         }else
         if( c<=0x7f ){
           //1バイト
           if( 32<=c ){
-            mapData.map.emplace_back(c);
+            mapData.map.emplace_back(rmUnnecessaryChar(c));
           }
           a=0;
           restByte=0;
@@ -331,6 +347,7 @@ void MapManager::read(const char *filename ){
 }
 
 void MapManager::write(const char *mapTblFileName,const char *mapDataFileName,MapWriter& mapWriter) const{
+  mapWriter.checkMapData(mapDataList_);
   std::vector<MapData::EventData::WarpData> warpData;
   {
     //
@@ -431,6 +448,35 @@ void MapManager::write(const char *mapTblFileName,const char *mapDataFileName,Ma
 }
 
 /**
+ * マップチェック
+ */
+class MapWriterCheck : public MapWriter{
+private:
+public:
+  MapWriterCheck() {}
+  void checkMapData(const std::vector<MapData>& mapDataList) override;
+  void writeMapData(const std::vector<unsigned char>& map,std::ofstream& ofs) override;
+};
+
+void MapWriterCheck::checkMapData(const std::vector<MapData>& mapDataList) {
+  std::size_t count[256]={0};
+  for(const MapData& mapData : mapDataList){
+    for(const unsigned char c: mapData.map ){
+      ++count[c];
+    }
+  }
+  for(std::size_t i=0;i<=255;++i){
+    if( count[i] ){
+      std::cout << i << '\t' << count[i] << std::endl;
+    }
+  }
+}
+
+void MapWriterCheck::writeMapData(const std::vector<unsigned char>& map,std::ofstream& ofs) {
+}
+
+
+/**
  * マップ未圧縮
  */
 class MapWriterRaw : public MapWriter{
@@ -456,54 +502,205 @@ void MapWriterRaw::writeMapData(const std::vector<unsigned char>& map,std::ofstr
 
 /**
  * マップ ランレングス圧縮
+ * 0-90までの値 次の1バイトを2-92回繰り返す
+ * 91以上 無圧縮データ
  */
 class MapWriterZipRunLength : public MapWriter{
 private:
-  void out_(std::ofstream& ofs,bool is1st,int nowMsxChar,std::size_t sameCount);
+  class OutPut{
+  private:
+    std::ofstream& ofs_;
+    std::size_t count_;
+  public:
+    OutPut( std::ofstream& ofs ): ofs_{ofs},count_{0} {}
+    void out(unsigned char a){
+      if( count_==0 ){
+        ofs_ << "\n\tDEFB ";
+      }else{
+        ofs_ << " ,";
+      }
+      ofs_ << static_cast<std::size_t>(a);
+      ++count_;
+    }
+    void countReset(){
+      count_=0;
+    }
+  };
+  /**
+   * 連続して同じ値を取る場合、個数を取得
+   */
+  std::size_t countSame(std::vector<unsigned char>::const_iterator p,const std::vector<unsigned char>::const_iterator end);
 public:
   MapWriterZipRunLength() {}
   void writeMapData(const std::vector<unsigned char>& map,std::ofstream& ofs) override;
 };
 
-void MapWriterZipRunLength::out_(std::ofstream& ofs,bool is1st,int nowMsxChar,std::size_t sameCount) {
-  if( sameCount==0){
-    return;
+std::size_t MapWriterZipRunLength::countSame(std::vector<unsigned char>::const_iterator p,const std::vector<unsigned char>::const_iterator end){
+  std::size_t result{0};
+  const unsigned char c{ *p };
+  while( p<end && *p==c ){
+    ++result;
+    ++p;
   }
-  if( is1st ){
-    ofs << "\tDEFB ";
-  }else{
-    ofs << " ,";
-  }
-  if( sameCount<=2){
-    ofs << nowMsxChar;
-    out_(ofs,false,nowMsxChar,sameCount-1);
-  }else
-  if( sameCount<=90+2 ){
-    ofs << (sameCount-2) <<',' << nowMsxChar;
-  }else{
-    ofs << 90 <<',' << nowMsxChar;
-    out_(ofs,false,nowMsxChar,sameCount-92);
-  }
+  return result;
 }
 
 void MapWriterZipRunLength::writeMapData(const std::vector<unsigned char>& map,std::ofstream& ofs) {
-  int nowMsxChar=static_cast<int>(map[0]);
-  std::size_t sameCount{1};
-  bool is1st{true};
-  for(std::size_t j=1;j<map.size();++j){
-    int nextMsxChar=static_cast<int>(map[j]);
-    if( nowMsxChar==nextMsxChar ){
-      ++sameCount;
-    }else{
-      out_(ofs,is1st,nowMsxChar,sameCount);
-      sameCount=1;
-      is1st=false;
+  auto p{ map.begin() };
+  MapWriterZipRunLength::OutPut outPut(ofs);
+  while(true){
+    if( map.end()<=p ){
+      break;
     }
-    nowMsxChar=nextMsxChar;
+    std::size_t cnt{ countSame(p,map.end()) };
+    do{
+      if( cnt<=2){
+        outPut.out(*p);
+        ++p;
+        break;
+      }else
+      if( cnt<=90+2 ){
+        outPut.countReset();
+        outPut.out(cnt-2);
+        outPut.out(*p);
+        outPut.countReset();
+        p += cnt;
+        break;
+      }else{
+        outPut.countReset();
+        outPut.out(90);
+        outPut.out(*p);
+        outPut.countReset();
+        p += 92;
+        cnt -= 92;
+      }
+    }while(0<cnt);
   }
-  out_(ofs,is1st,nowMsxChar,sameCount);
   ofs << std::endl;
 }
+
+/**
+ * マップ 2バイトの連続データ
+ * 0-94までの値 直前の2バイトを1-95回繰り返す
+ * 95-115までの値 無圧縮データ
+ * 116-235までの値 1つ前の1バイトを2-121回繰り返す
+ * 236-245までの値 無圧縮データ
+ * 246-255までの値 未使用
+ */
+class MapWriterZipRunLength2 : public MapWriter{
+private:
+  class OutPut{
+  private:
+    std::ofstream& ofs_;
+    std::size_t count_;
+  public:
+    OutPut( std::ofstream& ofs ): ofs_{ofs},count_{0} {}
+    void out(unsigned char a){
+      if( count_==0 ){
+        ofs_ << "\n\tDEFB ";
+      }else{
+        ofs_ << " ,";
+      }
+      ofs_ << static_cast<std::size_t>(a);
+      ++count_;
+    }
+    void countReset(){
+      count_=0;
+    }
+  };
+  /**
+   * 連続して同じ値を取る場合、個数を取得
+   */
+  std::size_t countSame(std::vector<unsigned char>::const_iterator p,const std::vector<unsigned char>::const_iterator end);
+  std::size_t countPair(std::vector<unsigned char>::const_iterator p,const std::vector<unsigned char>::const_iterator end);
+public:
+  MapWriterZipRunLength2() {}
+  void writeMapData(const std::vector<unsigned char>& map,std::ofstream& ofs) override;
+};
+
+std::size_t MapWriterZipRunLength2::countSame(std::vector<unsigned char>::const_iterator p,const std::vector<unsigned char>::const_iterator end){
+  std::size_t result{0};
+  const unsigned char c{ *p };
+  while( p<end && *p==c ){
+    ++result;
+    ++p;
+  }
+  return result;
+}
+
+/**
+ * 繰り返しパターンのバイト数を返す
+ *  236,238,236,238,236,238 の場合4
+ */
+std::size_t MapWriterZipRunLength2::countPair(std::vector<unsigned char>::const_iterator p,const std::vector<unsigned char>::const_iterator end){
+  std::size_t result{0};
+  while( p+2<end && *p==*(p+2) ){
+    ++result;
+    ++p;
+  }
+  return result;
+}
+
+void MapWriterZipRunLength2::writeMapData(const std::vector<unsigned char>& map,std::ofstream& ofs) {
+  auto p{ map.begin() };
+  MapWriterZipRunLength2::OutPut outPut(ofs);
+  while(true){
+    if( map.end()<=p ){
+      break;
+    }
+    std::size_t cnt{ countSame(p,map.end()) };
+    if( cnt<=2 ){
+      cnt = countPair(p,map.end());
+      //繰り返しパターン
+      if( cnt<2 ){
+        outPut.out(*p);
+        ++p;
+      }else{
+        outPut.countReset();
+        outPut.out(*p);
+        outPut.out(*(p+1));
+        p += cnt+2; //236,238,236,238,236,238 の場合cntは4
+        do{
+          constexpr std::size_t RunLength2Code = 0;
+          constexpr std::size_t RunLength2MaxLength = 94-RunLength2Code+1;
+          std::size_t c{ std::min( cnt,RunLength2MaxLength )};
+          outPut.out(RunLength2Code+c-1);
+          cnt -= c;
+        }while(0<cnt);
+        outPut.countReset();
+      }
+    }else{
+      //ランレングス圧縮
+      //116-235までの値 1つ前の1バイトを2-121回繰り返す
+      if( cnt<=2){
+        outPut.out(*p);
+        ++p;
+      }else
+      {
+        outPut.countReset();
+        const unsigned char nowChar{*p};
+        outPut.out(nowChar);
+        p += cnt;
+        --cnt;
+        do{
+          if( cnt<2){
+            outPut.out(nowChar);
+            --cnt;
+          }else{
+            constexpr std::size_t RunLengthCode = 116;
+            constexpr std::size_t RunLengthMaxLength = 235-RunLengthCode+2;
+            std::size_t c{ std::min( cnt,RunLengthMaxLength )};
+            outPut.out(RunLengthCode+c-2);
+            cnt -= c;
+          }
+        }while(0<cnt);
+        outPut.countReset();
+      }
+    }
+  }
+  ofs << std::endl;
+}
+
 
 }
 
@@ -515,6 +712,10 @@ int main(int argc, char *argv[])
       isHelp=true;
     }else{
       std::unique_ptr<MapWriter> mapWriter{nullptr};
+      if( std::string("check")==argv[4] ){
+        //マップチェック
+        mapWriter=std::make_unique<MapWriterCheck>();
+      }else
       if( std::string("raw")==argv[4] ){
         //マップ未圧縮
         mapWriter=std::make_unique<MapWriterRaw>();
@@ -522,6 +723,10 @@ int main(int argc, char *argv[])
       if( std::string("run-length")==argv[4] ){
         //マップランレングス圧縮
         mapWriter=std::make_unique<MapWriterZipRunLength>();
+      }else
+      if( std::string("run-length2")==argv[4] ){
+        //2バイトの連続データ
+        mapWriter=std::make_unique<MapWriterZipRunLength2>();
       }
       if( mapWriter==nullptr ){
         throw std::runtime_error("mode Error");

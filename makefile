@@ -33,12 +33,12 @@ $(BUILD_DIR)/%.rom: $(SRC_DIRS)/%.asm $(BUILD_DIR)/mapzip $(MAPTBL_FILES) $(MAPD
 # map to map.tbl
 $(BUILD_DIR)/%.map.tbl: %.map $(BUILD_DIR)/mapzip
 	$(MKDIR_P) $(dir $@)
-	$(BUILD_DIR)/mapzip $< $(BUILD_DIR)/$<.tbl $(BUILD_DIR)/$<.data run-length
+	$(BUILD_DIR)/mapzip $< $(BUILD_DIR)/$<.tbl $(BUILD_DIR)/$<.data run-length2
 
 # map to map.data
 $(BUILD_DIR)/%.map.data: %.map $(BUILD_DIR)/mapzip
 	$(MKDIR_P) $(dir $@)
-	$(BUILD_DIR)/mapzip $< $(BUILD_DIR)/$<.tbl $(BUILD_DIR)/$<.data run-length
+	$(BUILD_DIR)/mapzip $< $(BUILD_DIR)/$<.tbl $(BUILD_DIR)/$<.data run-length2
 
 mapzip: $(BUILD_DIR)/mapzip
 $(BUILD_DIR)/mapzip: tool/mapzip.cpp

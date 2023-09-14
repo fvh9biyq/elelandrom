@@ -1857,29 +1857,59 @@ next_event: ;skip イベントデータ
 	jr next_event
 map:
 	;マップデータ展開
+	;RunLength2
+	; 0-94までの値 直前の2バイトを1-95回繰り返す
+	; 95-115までの値 無圧縮データ
+	; 116-235までの値 1つ前の1バイトを2-121回繰り返す
+	; 236-245までの値 無圧縮データ
+	; 246-255までの値 未使用
 	ld de,VIEW_CODE_AREA
-loop:
+unzip_loop:
 	ld a,[hl]
 	inc hl
+	cp a,95
+	jr nc,unzip_1
+	; 0-94までの値 直前の2バイトを1-95回繰り返す
+	push hl
+	inc a
+	ld c,a
+	ld b,0
+	ld h,d
+	ld l,e
+	dec hl
+	dec hl
+	ldir
+	pop hl
+	jr unzip_next
+unzip_1:
 	ld b,1
-	cp a,91
-	jr nc,loop1
-	add a,2
+	cp a,116
+	jr c,unzip_rawdata
+	cp a,236
+	jr nc,unzip_rawdata
+	; 116-235までの値 1つ前の1バイトを2-121回繰り返す
+	sub a,116-2
 	ld b,a
-	ld a,[hl]
-	inc hl
-loop1:
+	dec de
+	ld a,[de]
+	inc de
+unzip_rawdata:
+	; 95-115までの値 無圧縮データ
+	; 236-245までの値 無圧縮データ
+	; 246-255までの値 未使用
+unzip_loop1:
 	ld [de],a
 	inc de
-	djnz loop1
+	djnz unzip_loop1
 
+unzip_next:
 	push hl
 	ld hl,65536-(VIEW_CODE_AREA+32*22)
 	add hl,de
 	ld a,h
 	or a,l
 	pop hl
-	jr nz,loop
+	jr nz,unzip_loop
 
 	;イベントデータ処理
 	call GET_MAP_ADDR
@@ -2439,6 +2469,12 @@ text_push_space_key:
 ENDSCOPE; GAMEOVER
 
 
+include "src/vsync.inc"
+
+include "src/password.inc"
+
+include "src/system_init.inc"
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;; マップデータ
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -2475,13 +2511,6 @@ ENDSCOPE; GAMEOVER
 ; 　　+10 xMax　x最大値
 ; 　　+12 xMin　x最小値
 include "build/src/map.map.data"
-
-include "src/vsync.inc"
-
-include "src/password.inc"
-
-include "src/system_init.inc"
-
 
 _MAXSIZE:: ;最大サイズ
 
