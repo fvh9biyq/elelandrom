@@ -23,7 +23,7 @@ DEPS := $(DEPS_SRCS:%=$(BUILD_DIR)/%.d)
 
 .PHONY: clean all mapzip msxcolor tool
 
-all: rom bin tool $(MAPTBL_FILES) $(MAPDATA_FILES)
+all: rom bin dsk tool $(MAPTBL_FILES) $(MAPDATA_FILES)
 
 rom: $(BUILD_DIR)/$(TARGET).rom
 $(BUILD_DIR)/%.rom: $(SRC_DIRS)/%.asm $(BUILD_DIR)/mapzip $(MAPTBL_FILES) $(MAPDATA_FILES) $(INC_FILES)
@@ -36,6 +36,16 @@ $(BUILD_DIR)/eleland.bin: $(SRC_DIRS)/bload.asm $(BUILD_DIR)/mapzip $(MAPTBL_FIL
 	$(MKDIR_P) $(dir $@)
 	$(Z80) $< $@
 	grep '^_' zma.sym
+
+dsk: $(BUILD_DIR)/eleland.dsk
+$(BUILD_DIR)/eleland.dsk: $(SRC_DIRS)/diskboot.asm $(SRC_DIRS)/diskmain.asm $(BUILD_DIR)/mapzip $(MAPTBL_FILES) $(MAPDATA_FILES) $(INC_FILES)
+	$(MKDIR_P) $(dir $@)
+	$(Z80) $(SRC_DIRS)/diskboot.asm $(BUILD_DIR)/diskboot.bin
+	$(Z80) $(SRC_DIRS)/diskmain.asm $(BUILD_DIR)/diskmain.bin
+	cat $(BUILD_DIR)/diskboot.bin $(BUILD_DIR)/diskmain.bin > $(BUILD_DIR)/eleland.dsk
+	truncate -s 737280 $(BUILD_DIR)/eleland.dsk
+	grep '^_' zma.sym
+
 
 # map to map.tbl
 $(BUILD_DIR)/%.map.tbl: %.map $(BUILD_DIR)/mapzip

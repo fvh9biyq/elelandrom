@@ -1,0 +1,3 @@
+DISK_MAIN_START := 0x8000 ;プログラム開始アドレス
+DISK_SYSTEM_CALL := 0x0f37d
+
