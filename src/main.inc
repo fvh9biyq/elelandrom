@@ -262,7 +262,7 @@ loop:
 skip_damage_effect:
 
 	ld a,[GAME_SPEED] ;
-	or a,a
+	or a
 	jr z,do_wait
 	bit 1,[hl]
 	jr z,do_wait
@@ -273,11 +273,11 @@ do_wait:
 
 	;ボス倒されたら
 	ld a,[BOSS_Status]
-	cp a,BOSS_Status_Dead
+	cp BOSS_Status_Dead
 	jp z,GAMECLEAR
 
 	ld a,[PLAYER_HP]
-	or a,a
+	or a
 	jp z,GAMEOVER
 
 	jr loop
@@ -289,7 +289,7 @@ ENDSCOPE; MAIN
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SCOPE TITLE
 TITLE::
-	xor a,a
+	xor a
 	ld hl,MAP_ID
 	ld [hl],a
 	inc hl
@@ -312,7 +312,7 @@ TITLE::
 	inc hl
 	ld [hl],120
 	inc hl
-	xor a,a
+	xor a
 	ld [hl],a
 
 	;敵データをクリア
@@ -348,7 +348,7 @@ loop:
 	call BIOS_CHSNS
 	jr z,loop
 	call CHGET
-	cp a,0x0D ;リターンキーを押すとパスワード入力
+	cp 0x0D ;リターンキーを押すとパスワード入力
 	jr nz,loop
 
 	ld hl,text_input_passward
@@ -365,19 +365,19 @@ input_passward_loop:
 	ld [GAME_CONTROLLER],a
 no_input:
 	call CHGET ;キーボード入力があるまで待つ
-	cp a,0x0D ;リターンキーを押すと入力終了
+	cp 0x0D ;リターンキーを押すと入力終了
 	jr z,input_end
-	cp a,0x08 ;BSキーを押すと1つ戻る
+	cp 0x08 ;BSキーを押すと1つ戻る
 	jr z,input_back
-	cp a,0x1D ;左キーを押すと1つ戻る
+	cp 0x1D ;左キーを押すと1つ戻る
 	jr z,input_back
-	cp a,0x7F ;DELキーを押すと1つ戻る
+	cp 0x7F ;DELキーを押すと1つ戻る
 	jr nz,skip_back
 input_back:
 	pop bc
 	push bc
 	ld a,PASSWARD_MAXSIZE
-	cp a,b
+	cp b
 	jr z,no_input ;最大文字数なら何もしない
 	pop bc
 	pop hl
@@ -390,14 +390,14 @@ skip_back:
 	push bc
 	dec b
 	jr z,no_input ;最後の入力はリターンキーのみ受け付ける
-	cp a,0x30 ;0より下のキャラクターは無視
+	cp 0x30 ;0より下のキャラクターは無視
     jr c,no_input
-    cp a,0x3A ;0-9なら入力OK
+    cp 0x3A ;0-9なら入力OK
     jr c,input_ok
-	and a,0xDF;アルファベット大文字にする
-    cp a,0x41 ;Aより下のキャラクターは無視
+	and 0xDF;アルファベット大文字にする
+    cp 0x41 ;Aより下のキャラクターは無視
     jr c,no_input
-	cp a,0x5B ;A-Zなら入力OK
+	cp 0x5B ;A-Zなら入力OK
     jr nc,no_input
 input_ok:
 	pop bc
@@ -440,11 +440,11 @@ SCOPE CHGET
 CHGET::
 	call BIOS_CHGET ;キーボード入力があるまで待つ
 	ld hl,CHGET_SAVE
-	cp a,[hl]
+	cp [hl]
 	jr nz,save
 	inc hl ;CHGET_COUNT
 	ld a,[hl]
-	or a,a
+	or a
 	jr nz,CHGET
 	dec hl
 	ld a,[hl]
@@ -461,7 +461,7 @@ ENDSCOPE; CHGET
 SCOPE GAME_INIT
 GAME_INIT::
 	ld a,[MAP_ID]
-	or a,a
+	or a
 	ld a,120
 	jr z,set_player_y
 	ld a,-1
@@ -503,7 +503,7 @@ MOVE_PLAYER::
 attack:
 	; スペースキーを押していれば
 	inc a
-	cp a,ATTACK_COUNT_END
+	cp ATTACK_COUNT_END
 	jr c,set_attack_count
 	ld a,ATTACK_COUNT_END
 set_attack_count:
@@ -515,9 +515,9 @@ set_attack_count:
 	pop af
 	push af
 	jr z,skip_move
-	cp a,2
+	cp 2
 	jr c,skip_right
-	cp a,5
+	cp 5
 	jr nc,skip_right
 	ld a,1*6
 	call IS_BLOCK
@@ -529,14 +529,14 @@ move_1:
 	ex de,hl
 	ld [hl],a ;X座標増加
 	inc l
-	and a,8
+	and 8
 	jr z,sprite_move_pattern
 	set 3,b
 sprite_move_pattern:
 	ld [hl],b ;パターン番号
 	jr skip_left
 skip_right:
-	cp a,6
+	cp 6
 	jr c,skip_left
 	ld a,3*6
 	call IS_BLOCK
@@ -550,19 +550,19 @@ skip_move:
 	pop af
 	jr z,not_press
 	add a,256-8 ;8→0 7→255 ... 3→251 2→250 1→249
-	cp a,251
+	cp 251
 not_press:
 	ld hl,JUMP_COUNT
 	ld a,[hl]
 	jr c,jump_countup
 	;上ボタンを離している時
-	or a,a
+	or a
 	jr nz,not_fall
 	; 0の時JUMP_COUNT_FALL
 	ld a,JUMP_COUNT_FALL
 	jr set_a
 not_fall:
-	cp a,JUMP_COUNT_DOWN
+	cp JUMP_COUNT_DOWN
 	jr nc,jump_countup
 	ld a,JUMP_COUNT_DOWN
 	jr set_a
@@ -571,19 +571,19 @@ jump_countup:
 set_a:
 	ld [hl],a
 	;JUMP_COUNTが
-	cp a,41
+	cp 41
 	jr c,under_41
 	ld bc,0x0100+2*6
-	cp a,57
+	cp 57
 	jr c,loop ;JUMP_COUNTが41以上なら「下ブロックを調べ、地面でないなら落下、落下できないならJUMP_COUNTを0にする」を1回
 	inc b     ;JUMP_COUNTが57以上なら「下ブロックを調べ、地面でないなら落下、落下できないならJUMP_COUNTを0にする」を2回
 	ld [hl],JUMP_COUNT_FALL ;JUMP_COUNTの最大値を57にする
 	jr loop
 under_41:
-	cp a,32
+	cp 32
 	jr nc,skip_jump ;JUMP_COUNTが32以上ならなにもしない
 	ld bc,0x0200+0*6
-	cp a,17
+	cp 17
 	jr c,loop ;JUMP_COUNTが17未満なら「上ブロックを調べ、地面でないなら上昇」を2回
 	dec b ;JUMP_COUNTが17以上なら「上ブロックを調べ、地面でないなら上昇」を1回
 
@@ -597,7 +597,7 @@ loop:
 	ex de,hl
 	ld a,c ;cは0（上）または12（下） cが0ならY座標-1、cが12ならY座標+1
 	rrca
-	and a,2
+	and 2
 	dec a
 	add a,[hl]
 	ld [hl],a
@@ -606,9 +606,9 @@ loop:
 skip_down:
 	ld hl,JUMP_COUNT
 	ld a,[hl]
-	cp a,JUMP_COUNT_DOWN
+	cp JUMP_COUNT_DOWN
 	jr c,skip_jump
-	xor a,a
+	xor a
 	ld [hl],a
 skip_jump:
 	ret
@@ -629,25 +629,25 @@ current_enemy:
 	djnz current_enemy
 
 	ld a,[hl]
-	or a,a
+	or a
 	jp z,next_enemy ;HP=0の敵は移動しない
 
 	push hl
 	pop ix
 
 	ld a,[ix+ENEMY_DAMAGE_COUNT-ENEMY_HP] ;ENEMY_DAMAGE_COUNT
-	or a,a
+	or a
 	jr nz,next_enemy ;ダメージを受けている敵は移動＆足踏みしない
 
 	ld a,[ix+ENEMY_Status-ENEMY_HP] ;ENEMY_Status
-	and a,ENEMY_Status_MOVE+ENEMY_Status_JUMP+ENEMY_Status_ISRIGHT+ENEMY_Status_BatWithBoss
+	and ENEMY_Status_MOVE+ENEMY_Status_JUMP+ENEMY_Status_ISRIGHT+ENEMY_Status_BatWithBoss
 	jr z,next_enemy ;横移動もジャンプもしない場合は次の敵
 	bit ENEMY_Status_JUMP_BIT,a
 	jr z,not_jump
 
 	;ジャンプする
 	ld a,[ix+ENEMY_JumpCount-ENEMY_HP] ;ENEMY_JumpCount
-	or a,a
+	or a
 	jr nz,next_enemy ;ジャンプ中
 	inc [ix+ENEMY_JumpCount-ENEMY_HP] ; ジャンプ開始
 	jr next_enemy
@@ -659,24 +659,24 @@ not_jump:
 not_batwithboss:
 
 	ld b,[ix+ENEMY_xMin-ENEMY_HP] ;xMin
-	and a,ENEMY_Status_ISRIGHT+ENEMY_Status_MOVE
+	and ENEMY_Status_ISRIGHT+ENEMY_Status_MOVE
 	rra
 	jr nc,right ;右向き
 	neg
 	add a,[ix+ENEMY_xPos-ENEMY_HP] ;X座標
-	cp a,[ix+ENEMY_xMin-ENEMY_HP] ;xMin
+	cp [ix+ENEMY_xMin-ENEMY_HP] ;xMin
 	ccf
 	ld b,[ix+ENEMY_xMax-ENEMY_HP] ;xMax
 	jr set_pos
 right:
 	add a,[ix+ENEMY_xPos-ENEMY_HP] ;X座標
-	cp a,[ix+ENEMY_xMax-ENEMY_HP] ;xMax
+	cp [ix+ENEMY_xMax-ENEMY_HP] ;xMax
 set_pos:
 	jr nc,turn
 	ld [ix+ENEMY_xPos-ENEMY_HP],a ;X座標
 	jr step_enemy
 warp_bat:
-	sub a,b
+	sub b
 	bit 7,a
 	jr nz,set_y
 	neg
@@ -689,21 +689,21 @@ turn:
 	bit ENEMY_Status_BatWithBoss_BIT,c
 	jr nz,warp_bat
 	ld a,[ix+ENEMY_Status-ENEMY_HP] ;ENEMY_Status
-	xor a,ENEMY_Status_ISRIGHT
+	xor ENEMY_Status_ISRIGHT
 	ld [ix+ENEMY_Status-ENEMY_HP],a ;ENEMY_Status
 
 step_enemy:
 	;敵を足踏みさせる
 	ld a,[ix+ENEMY_xPos -ENEMY_HP]
-	and a,0x07
-	cp a,04
+	and 0x07
+	cp 04
 	jr nz,next_enemy
 	ld a,[ix+ENEMY_SPRITE -ENEMY_HP] ; パターン番号
-	xor a,2*4 ;足踏み
-	and a,255-4
+	xor 2*4 ;足踏み
+	and 255-4
 	bit ENEMY_Status_ISRIGHT_BIT,[ix+ENEMY_Status -ENEMY_HP] ; Statusのbit0が1の場合右向き
 	jr z,set_enemy_sprite
-	or a,4 ;スプライトパターン番号を左向きにする
+	or 4 ;スプライトパターン番号を左向きにする
 set_enemy_sprite:
 	ld [ix+ENEMY_SPRITE -ENEMY_HP],a
 
@@ -713,9 +713,9 @@ next_enemy:
 	dec hl ;ENEMY_INDEX
 	ld a,[hl]
 	inc a
-	cp a,b
+	cp b
 	jr c,set_enemy_index
-	xor a,a
+	xor a
 set_enemy_index:
 	ld [hl],a
 	ret
@@ -730,17 +730,17 @@ JUMP_ENEMY::
 	ld b,ENEMY_MAX_COUNT ;敵は最大4
 loop:
 	ld a,[ix+ENEMY_HP]
-	or a,a
+	or a
 	jp z,next_enemy ;HP=0の敵は判定しない
 	ld a,[ix+ENEMY_DAMAGE_COUNT] ;ダメージカウント
-	or a,a
+	or a
 	jr nz,next_enemy ;ダメージを受けている敵はJUMPしない
 	ld a,[ix+ENEMY_JumpCount] ;JumpCount
-	or a,a
+	or a
 	jr z,next_enemy ;JumpCountが0の敵はJUMPしない
 	ld c,a
 	dec a
-	and a,0xf8
+	and 0xf8
 	rrca
 	rrca
 	rrca
@@ -756,9 +756,9 @@ loop:
 
 	ld a,c
 	inc a
-	cp a,73
+	cp 73
 	jr c,set_jumpcount
-	xor a,a
+	xor a
 set_jumpcount:
 	ld [ix+ENEMY_JumpCount],a
 next_enemy:
@@ -793,10 +793,10 @@ CHECK_PLAYER_ATTACK::
 loop:
 	push bc
 	ld a,[ix+ENEMY_HP]
-	or a,a
+	or a
 	jr z,next_enemy ;HP=0の敵は判定しない
 	ld a,[ix+ENEMY_DAMAGE_COUNT] ;ダメージカウント
-	or a,a
+	or a
 	jr nz,next_enemy ;ダメージを受けている敵は攻撃判定なし
 
 	;ガイコツはハンマー無しだとダメージを与えられない
@@ -811,22 +811,22 @@ not_skeleton:
 	ld hl,PLAYER_Y
 	ld a,[hl]
 	add a,11 ;剣の下部分
-	sub a,[ix+ENEMY_yPos] ;敵yPosが剣の下部分より下ならヒットしない
+	sub [ix+ENEMY_yPos] ;敵yPosが剣の下部分より下ならヒットしない
 	jr c,next_enemy
-	cp a,5+16 ;剣の上部分 todoこの辺ちゃんと
+	cp 5+16 ;剣の上部分 todoこの辺ちゃんと
 	jr nc,next_enemy
 	inc hl ;PLAYER_X
 	ld a,[hl]
 	inc hl ;PLAYER_SPRITE
-;	sub a,0
+;	sub 0
 	bit 2,[hl]
 	jr nz,left_attack
 	;右向き
 	add a,32+0
 left_attack:
-	sub a,[ix+ENEMY_xPos] ;敵xPosが剣の右部分より右ならヒットしない
+	sub [ix+ENEMY_xPos] ;敵xPosが剣の右部分より右ならヒットしない
 	jr c,next_enemy
-	cp a,32
+	cp 32
 	jr nc,next_enemy
 
 	;オオカミは吹っ飛ばない(であってる？)
@@ -835,7 +835,7 @@ left_attack:
 
 	;敵吹っ飛ぶ
 	ld a,[ix+ENEMY_xPos]
-	sub a,8
+	sub 8
 	bit 2,[hl]
 	jr nz,left_knock_back
 	add a,16
@@ -852,7 +852,7 @@ skip_knock_back:
 
 	;敵HP減少
 	ld a,[PLAYER_LEVEL]
-	cp a,11 ;level max
+	cp 11 ;level max
 	jr c,not_max_level
 	;ボス以外の敵は最大255ダメージ
 max_damage:
@@ -865,7 +865,7 @@ not_max_level:
 	ld l,a
 	ld c,[hl]
 	ld a,[PLAYER_ITEMS]
-	and a,ITEM_SWORD
+	and ITEM_SWORD
 	jr z,enemy_damage ;剣を持っているとダメージ2倍
 	inc l
 	ld a,[hl]
@@ -874,13 +874,13 @@ not_max_level:
 	ld c,a
 enemy_damage:
 	ld a,[ix+ENEMY_HP]
-	sub a,c
+	sub c
 	jr nc,set_hp
-	xor a,a
+	xor a
 set_hp:
 	ld [ix+ENEMY_HP],a
 
-	or a,a
+	or a
 	jr nz,skip_enemy_hp0
 	;敵倒した
 	ld a,[ix+ENEMY_EXP]
@@ -904,7 +904,7 @@ skip_enemy_hp0:
 
 	;敵HP表示
 	ld hl,VIEW_CODE_AREA+14+23*VIEW_CODE_AREA_WIDTH+1
-	xor a,a
+	xor a
 	ld [hl],a
 	dec hl
 	ld [hl],a ;予め0クリアしておく
@@ -928,7 +928,7 @@ SCOPE IS_ATTACK
 IS_ATTACK::
 	ld a,[ATTACK_COUNT]
 	dec a
-	cp a,ATTACK_COUNT_END-1
+	cp ATTACK_COUNT_END-1
 	ret
 ENDSCOPE; IS_ATTACK
 
@@ -939,17 +939,17 @@ SCOPE PLAYER_HEAL
 PLAYER_HEAL::
 	;ジャンプ中は回復しない
 	ld a,[JUMP_COUNT]
-	or a,a
+	or a
 	ret nz
 
 	;ENEMY_INDEXが0でない場合は回復しない
 	ld a,[ENEMY_INDEX]
-	or a,a
+	or a
 	ret nz
 
 	;ダメージを食らっている最中は回復しない
 	ld hl,PLAYER_DAMAGE_COUNT
-	or a,a
+	or a
 	ret nz
 
 	;剣を振っている間は回復しない
@@ -971,7 +971,7 @@ normal_heal:
 	ld b,[hl]
 	inc hl ;PLAYER_HP
 	ld a,[hl]
-	cp a,b
+	cp b
 	ret nc
 	inc a
 	ld [hl],a
@@ -990,13 +990,13 @@ CHECK_PLAYER_DAMAGE::
 	;PLAYER_NODAMAGEが1の時ダメージを受けない
 	ld hl,PLAYER_NODAMAGE
 	ld a,[hl]
-	or a,a
+	or a
 	ret nz
 
 	;ダメージ受けている中はダメージ判定しない
 	dec hl ;PLAYER_DAMAGE_COUNT
 	ld a,[hl]
-	or a,a
+	or a
 	ret nz
 
 	;敵全員と判定
@@ -1005,23 +1005,23 @@ CHECK_PLAYER_DAMAGE::
 loop:
 	push bc
 	ld a,[ix+ENEMY_HP]
-	or a,a
+	or a
 	jr z,next_enemy ;HP=0の敵は判定しない
 	ld a,[ix+ENEMY_DAMAGE_COUNT] ;ダメージカウント
-	or a,a
+	or a
 	jr nz,next_enemy ;ダメージを受けている敵は判定なし
 	; プレイヤーの位置と敵の位置を比較し、ヒットしていればダメージを受ける
 	ld hl,PLAYER_Y
 	ld a,[hl]
-	sub a,[ix+ENEMY_yPos]
+	sub [ix+ENEMY_yPos]
 	add a,16
-	cp a,32
+	cp 32
 	jr nc,next_enemy
 	inc hl ;PLAYER_X
 	ld a,[hl]
-	sub a,[ix+ENEMY_xPos]
+	sub [ix+ENEMY_xPos]
 	add a,13
-	cp a,26
+	cp 26
 	jr nc,next_enemy
 
 	;ダメージ
@@ -1066,9 +1066,9 @@ skip_item_shield:
 	ld [hl],32
 	dec hl ;PLAYER_HP
 	ld a,[hl]
-	sub a,b
+	sub b
 	jr nc,set_hp
-	xor a,a
+	xor a
 set_hp:
 	ld [hl],a
 	call PUT_STATUS
@@ -1089,7 +1089,7 @@ DIV3::
 	ld e,0
 loop:
 	ld a,d
-	sub a,h
+	sub h
 	jr c,next
 	ld d,a
 	ld a,e
@@ -1123,7 +1123,7 @@ POSXY_VIEW_CODE_AREA::
 	ex de,hl
 	add hl,hl ;スプライトy座標を1/8*32、すなわち4倍にすることでRAMアドレスになる
 	add hl,hl
-	or a,l
+	or l
 	ld l,a
 	ret
 ENDSCOPE; POSXY_VIEW_CODE_AREA
@@ -1135,12 +1135,12 @@ SCOPE CHECK_BOSS
 CHECK_BOSS::
 	ld hl,BOSS_Status
 	ld a,[hl]
-	or a,a
+	or a
 	ret z ;0の時ボスは存在しないマップ
 
 	dec hl ;BOSS_COUNT
 	ld a,[hl]
-	or a,a
+	or a
 	call z,warp_boss ;ボス移動
 
 	;プレイヤー攻撃判定
@@ -1157,7 +1157,7 @@ CHECK_BOSS::
 ;プレイヤー攻撃判定
 check_boss_damage:
 	ld a,[BOSS_DAMAGE_COUNT]
-	or a,a
+	or a
 	ret nz ;ボスダメージ中なら判定なし
 
 	; 剣の位置と敵の位置を比較し、ヒットしていればダメージを与える
@@ -1166,26 +1166,26 @@ check_boss_damage:
 	ld de,PLAYER_Y
 	ld a,[de]
 	add a,11 ;剣の下部分
-	sub a,[hl] ;敵yPosが剣の下部分より下ならヒットしない
+	sub [hl] ;敵yPosが剣の下部分より下ならヒットしない
 	ret c
-	cp a,5+32 ;剣の上部分 todoこの辺ちゃんと
+	cp 5+32 ;剣の上部分 todoこの辺ちゃんと
 	ret nc
 	inc de ;PLAYER_X
 	ld a,[de]
 	inc de ;PLAYER_SPRITE
-;	sub a,0
+;	sub 0
 	ld c,a
 	ld a,[de]
-	and a,4
+	and 4
 	ld a,c
 	jr nz,left_attack
 	;右向き
 	add a,32+0
 left_attack:
 	inc hl
-	sub a,[hl] ;敵xPosが剣の右部分より右ならヒットしない
+	sub [hl] ;敵xPosが剣の右部分より右ならヒットしない
 	ret c
-	cp a,64
+	cp 64
 	ret nc
 
 	;BOSSダメージエフェクト
@@ -1199,7 +1199,7 @@ left_attack:
 
 	;BOSS HP減少
 	ld a,[PLAYER_LEVEL]
-	cp a,11 ;level max
+	cp 11 ;level max
 	jr c,not_max_level
 	;ボスには最大255*2ダメージ
 	ld hl,255*2
@@ -1213,7 +1213,7 @@ not_max_level:
 	ld h,0
 	ld l,a
 	ld a,[PLAYER_ITEMS]
-	and a,ITEM_SWORD
+	and ITEM_SWORD
 	jr z,enemy_damage ;剣を持っているとダメージ2倍
 	inc e
 	ld a,[de]
@@ -1228,7 +1228,7 @@ enemy_damage:
 	inc hl
 	ld d,[hl]
 	ex de,hl
-	or a,a
+	or a
 	sbc hl,bc
 	jr nc,set_hp
 	ld hl,0
@@ -1240,7 +1240,7 @@ set_hp:
 
 	;BOSS 倒したか
 	ld a,d
-	or a,e
+	or e
 	jr nz,skip_boss_dead
 	ld hl,BOSS_Status
 	ld [hl],BOSS_Status_Dead
@@ -1267,13 +1267,13 @@ check_boss_attack:
 	;PLAYER_NODAMAGEが1の時ダメージを受けない
 	ld hl,PLAYER_NODAMAGE
 	ld a,[hl]
-	or a,a
+	or a
 	ret nz
 
 	;ダメージ受けている中はダメージ判定しない
 	dec hl ;PLAYER_DAMAGE_COUNT
 	ld a,[hl]
-	or a,a
+	or a
 	ret nz
 
 	;ボスはダメージを受けていても判定あり
@@ -1284,15 +1284,15 @@ check_boss_attack:
 	ld e,[hl] ;boss_x
 	ld hl,PLAYER_Y
 	ld a,[hl]
-	sub a,d ;boss_y
+	sub d ;boss_y
 	add a,16
-	cp a,32+16
+	cp 32+16
 	ret nc
 	inc hl ;PLAYER_X
 	ld a,[hl]
-	sub a,e ;boss_x
+	sub e ;boss_x
 	add a,13
-	cp a,26+16
+	cp 26+16
 	ret nc
 
 	ld b,128 ;ボス攻撃力
@@ -1301,7 +1301,7 @@ check_boss_attack:
 
 warp_boss:
 	;ワープするとダメージカウンタ0
-	xor a,a
+	xor a
 	ld [BOSS_DAMAGE_COUNT],a
 
 	;移動前のボスの位置を消す
@@ -1315,7 +1315,7 @@ warp_boss:
 	ld a,[hl]
 not_zero:
 	inc a
-	and a,0x03
+	and 0x03
 	jr z,not_zero
 	ld [hl],a
 
@@ -1330,7 +1330,7 @@ not_zero:
 	ld hl,ENEMY_LIST+ENEMY_yPos
 
 	ld a,[ENEMY_COUNT]
-	or a,a
+	or a
 	jr z,skip_enemy_copy
 	ld b,a
 loop_enemy_copy:
@@ -1463,16 +1463,16 @@ put_text:
 	ld a,0x30-1
 loop:
 	inc a
-	or a,a
+	or a
 	sbc hl,de
 	jr nc,loop
 	add hl,de
-	cp a,c
+	cp c
 	jr z,put_space
 	ld c,0xff
 	jr put_1char
 put_space:
-	xor a,a
+	xor a
 put_1char:
 	exx
 	ld [de],a
@@ -1494,7 +1494,7 @@ DOWN_DAMAGE_COUNT::
 	ld de,ENEMY_SIZE
 loop:
 	ld a,[hl]
-	or a,a
+	or a
 	jr z,next_enemy
 	dec a
 	ld [hl],a
@@ -1504,7 +1504,7 @@ next_enemy:
 
 	ld hl,PLAYER_DAMAGE_COUNT
 	ld a,[hl]
-	or a,a
+	or a
 	jr z,skip_player
 	dec a
 	ld [hl],a
@@ -1512,7 +1512,7 @@ skip_player:
 
 	ld hl,BOSS_DAMAGE_COUNT
 	ld a,[hl]
-	or a,a
+	or a
 	jr z,skip_boss
 	dec a
 	ld [hl],a
@@ -1530,14 +1530,14 @@ SCOPE CHECK_EVENT
 CHECK_EVENT::
 	call GET_EVENT_ID
 	ld hl,DISABLED_EVENT_ID
-	cp a,[hl]
+	cp [hl]
 	jr z,SKIP_EVENT ;一度実行したイベントは移動しないと再実行されない　パスワード表示位置でじっとしていても再実行されない
 	ld [hl],a
 
-	cp a,1
+	cp 1
 	jr c,SKIP_EVENT ;EVENT_ID=0 NoAction アクションなし
 	jr z,event_getitem ;EVENT_ID=1 GetItem アイテム取得
-	sub a,3
+	sub 3
 	jr c,event_getitem ;EVENT_ID=2 GetItem アイテム取得
 	jp z,EVENT_PASSWORD ;EVENT_ID=3 Password パスワード表示
 	;EVENT_ID=4以上 Warp ワープ
@@ -1561,7 +1561,7 @@ CHECK_EVENT::
 event_getitem:
 	ld hl,PLAYER_ITEMS
 	ld a,[hl]
-	or a,b
+	or b
 	ld [hl],a
 	call PUT_STATUS
 	ld bc,BGM_DATA_CHEST
@@ -1595,7 +1595,7 @@ ISNOENEMY::
 	ld de,ENEMY_SIZE
 loop:
 	ld a,[hl]
-	or a,a
+	or a
 	jr nz,skip
 	add hl,de
 	djnz loop
@@ -1613,9 +1613,9 @@ SCOPE CHECK_MAPMOVE
 CHECK_MAPMOVE::
 	ld hl,PLAYER_Y
 	ld a,[hl]
-	cp a,19*8+6 ;Y座標が画面下20*8から24*8の場合はマップ下へ
+	cp 19*8+6 ;Y座標が画面下20*8から24*8の場合はマップ下へ
 	jr c,not_down
-	cp a,24*8
+	cp 24*8
 	jr nc,not_down
 
 	ld bc,0x0400
@@ -1627,7 +1627,7 @@ CHECK_MAPMOVE::
 not_down:
 	inc hl
 	ld a,[hl]
-	cp a,4 ;画面左4ドットよりXが小さい場合はマップ左へ
+	cp 4 ;画面左4ドットよりXが小さい場合はマップ左へ
 	jr nc,not_left
 
 	ld bc,0x00ff
@@ -1638,19 +1638,19 @@ move_1:
 move_2:
 	ld hl,MAP_ID
 	ld a,[hl]
-	and a,0x03
+	and 0x03
 	add a,c
-	and a,0x03
+	and 0x03
 	ld c,a
 	ld a,[hl]
-	and a,0x0c
+	and 0x0c
 	add a,b
-	cp a,12
+	cp 12
 	jr c,map_max
 	add a,b
 map_max:
-	and a,0x0c
-	or a,c
+	and 0x0c
+	or c
 	ld [hl],a
 
 	ld hl,PLAYER_Y
@@ -1666,7 +1666,7 @@ MAP_MOVE::
 	jr not_right
 
 not_left:
-	cp a,256-4-16+1 ;画面右4ドットよりXが大きい場合はマップ右へ
+	cp 256-4-16+1 ;画面右4ドットよりXが大きい場合はマップ右へ
 	jr c,not_right
 
 	ld bc,0x0001
@@ -1693,7 +1693,7 @@ ENDSCOPE; CLEAR_VIEW_CODE_AREA
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SCOPE CLEAR_AREA
 CLEAR_AREA::
-	xor a,a
+	xor a
 	ld [hl],a
 	ld d,h
 	ld e,l
@@ -1738,19 +1738,19 @@ event_skip_mode:
 	inc hl ;skip mode
 	ld a,[hl]
 	inc hl
-	or a,a
+	or a
 	ret z ;end of event
-	and a,0x3f ;イベントデータ1バイト目の下位位6ビットが0ならNoAction
+	and 0x3f ;イベントデータ1バイト目の下位位6ビットが0ならNoAction
 	jr z,event_next
 	ld c,a
-	cp a,2
+	cp 2
 	jr z,event_id_is_getitemnoenemy
 	jr nc,event_id_is_not_getitem
 event_id_is_getitem:
 	;EVENT_ID=1 GetItemの場合、イベントデータ2バイト目はアイテムデータ　アイテムを持っていればNoAction
 	ld b,[hl]
 	ld a,[PLAYER_ITEMS]
-	and a,b
+	and b
 	jr nz,event_next
 	jr check_xy_pos
 event_id_is_getitemnoenemy:
@@ -1762,7 +1762,7 @@ event_id_is_not_getitem:
 	ld b,a
 	ld a,[hl]
 	cpl
-	or a,b
+	or b
 	inc a
 	jr nz,event_next ;イベントデータ2バイト目はアイテムデータ　アイテムを持っていなければNoAction
 	ld b,[hl] ;イベントデータ2バイト目　アイテムデータをbに保存
@@ -1771,16 +1771,16 @@ check_xy_pos:
 
 	ld de,PLAYER_Y
 	ld a,[de]
-	sub a,[hl] ;イベントデータ3バイト目はスプライトy座標
+	sub [hl] ;イベントデータ3バイト目はスプライトy座標
 	inc hl
 	jr nz,event_skip_mode
 
 	inc de ;PLAYER_X
 	ld a,[de]
 	add a,4
-	sub a,[hl] ;イベントデータ4バイト目はスプライトx座標
+	sub [hl] ;イベントデータ4バイト目はスプライトx座標
 	jr c,event_skip_mode
-	cp a,8
+	cp 8
 	jr nc,event_skip_mode
 
 	ld a,c
@@ -1803,7 +1803,7 @@ COPY_ENEMY_DATA::
 	dec c
 	ret z
 	ld a,l
-	sub a,c
+	sub c
 	ld l,a
 	ld a,h
 	sbc a,0
@@ -1838,7 +1838,7 @@ SET_MAPDATA_ONLY::
 next_event: ;skip イベントデータ
 	ld a,[hl]
 	inc hl
-	or a,a
+	or a
 	jr z,map
 	inc hl
 	inc hl
@@ -1856,7 +1856,7 @@ map:
 unzip_loop:
 	ld a,[hl]
 	inc hl
-	cp a,95
+	cp 95
 	jr nc,unzip_1
 	; 0-94までの値 直前の2バイトを1-95回繰り返す
 	push hl
@@ -1872,12 +1872,12 @@ unzip_loop:
 	jr unzip_next
 unzip_1:
 	ld b,1
-	cp a,116
+	cp 116
 	jr c,unzip_rawdata
-	cp a,236
+	cp 236
 	jr nc,unzip_rawdata
 	; 116-235までの値 1つ前の1バイトを2-121回繰り返す
-	sub a,116-2
+	sub 116-2
 	ld b,a
 	dec de
 	ld a,[de]
@@ -1896,7 +1896,7 @@ unzip_next:
 	ld hl,65536-(VIEW_CODE_AREA+32*22)
 	add hl,de
 	ld a,h
-	or a,l
+	or l
 	pop hl
 	jr nz,unzip_loop
 
@@ -1915,21 +1915,21 @@ event_skip_mode:
 	inc hl ;skip mode
 	ld a,[hl]
 	inc hl
-	or a,a
+	or a
 	jr z,invisible_wall
 	ld c,a
-	and a,0x3f;イベントデータ1バイト目の下位2ビットがEVENT_ID=2 GetItemNoEnemy 敵全滅時アイテム取得
-	cp a,2
+	and 0x3f;イベントデータ1バイト目の下位2ビットがEVENT_ID=2 GetItemNoEnemy 敵全滅時アイテム取得
+	cp 2
 	jr nz,event_id_is_not_getitemnoenemy
 	call ISNOENEMY
 	jr nz,event_next
 event_id_is_not_getitemnoenemy:
 	ld a,c
- 	and a,0xc0 ;イベントデータ1バイト目の上位2ビットが0なら表示に変更なし
+ 	and 0xc0 ;イベントデータ1バイト目の上位2ビットが0なら表示に変更なし
 	jr z,event_next
 	ld c,a
 	ld a,[PLAYER_ITEMS]
-	and a,[hl]
+	and [hl]
 	jr nz,event_next ;イベントデータ2バイト目はアイテムデータ　アイテムを持っていれば表示に変更なし
 	inc hl
 
@@ -1972,7 +1972,7 @@ invisible_wall:
 	bit 0,[hl]
 	jr z,skip_invisible_wall
 	ld a,[PLAYER_ITEMS]
-	and a,ITEM_LAMP
+	and ITEM_LAMP
 	jr nz,skip_invisible_wall ;ランプを持っていると透明な壁が見える
 	;　壁を透明にする　マップ上の242を255に変更
 	ld hl,VIEW_CODE_AREA
@@ -2030,7 +2030,7 @@ loop_2:
 	add a,a ;*8
 	add a,a ;*16
 	add a,a ;*32
-	sub a,e ;*30
+	sub e ;*30
 	ld e,a
 	ld a,2
 	call BIOS_WRTPSG
@@ -2038,7 +2038,7 @@ loop_2:
 	call WAIT
 	inc d
 	ld a,d
-	cp a,6
+	cp 6
 	jr c,loop_2
 	djnz loop_1
 	ld a,9
@@ -2062,10 +2062,10 @@ SCOPE GTTRIG
 GTTRIG::
 	ld a,1
 	call BIOS_GTTRIG
-	or a,a
+	or a
 	ret nz
 	call BIOS_GTTRIG
-	or a,a
+	or a
 	ret
 ENDSCOPE; GTTRIG
 
@@ -2078,10 +2078,10 @@ SCOPE GTSTCK
 GTSTCK::
 	ld a,1
 	call BIOS_GTSTCK
-	or a,a
+	or a
 	ret nz
 	call BIOS_GTSTCK
-	or a,a
+	or a
 	ret
 ENDSCOPE; GTSTCK
 
@@ -2101,7 +2101,7 @@ TEXT_COPY::
 loop:
 	ld a,[hl]
 	inc hl
-	or a,a
+	or a
 	ret z
 	ld [de],a
 	inc de
@@ -2132,12 +2132,12 @@ put_1_text:
 	ld c,0x30-1
 loop:
 	inc c
-	sub a,b
+	sub b
 	jr nc,loop
 	add a,b
 	ld b,a
 	ld a,c
-	cp a,d
+	cp d
 	jr z,skip_put ;文字が'0'ならスキップ
 	ld [hl],c
 	ld d,0xff
@@ -2288,7 +2288,7 @@ is_block_one:
 	add a,[hl]
 	inc l
 	ld b,[hl]
-	and a,0xf8
+	and 0xf8
 	ld l,a
 	ld h,((VIEW_CODE_AREA)/256)/4
 	add hl,hl
@@ -2297,17 +2297,17 @@ is_block_one:
 	inc de
 	ld a,[de]
 	add a,b
-	and a,0xf8
+	and 0xf8
 	rrca
 	rrca
 	rrca
 	add a,l
 	ld l,a
 	ld a,[PLAYER_ITEMS]
-	and a,ITEM_MAGICLAMP
+	and ITEM_MAGICLAMP
 	neg
 	add a,240-1 ;魔法のランプがない場合は240-1　ある場合は236-1
-	cp a,[hl]
+	cp [hl]
 	ret
 ENDSCOPE; IS_BLOCK
 
@@ -2323,7 +2323,7 @@ CALC_PLAYER_STATUS::
 	ld b,1
 loop:
 	inc b ;レベル
-	cp a,[hl]
+	cp [hl]
 	inc hl
 	jr z,break_loop
 	jr nc,loop
@@ -2345,7 +2345,7 @@ skip_level_max:
 	inc hl
 	ld [hl],a ; HP max PLAYER_HPMAX
 	ld a,c
-	cp a,b
+	cp b
 	ret
 ; 経験値テーブル
 exp_tbl:

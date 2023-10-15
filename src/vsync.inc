@@ -13,7 +13,7 @@ WAIT::
 	ei
 wait_loop:
 	ld a,[hl]
-	or a,a
+	or a
 	jr nz,wait_loop
 skip_wait:
 	pop af
@@ -54,20 +54,20 @@ VSYNC_START::
 	push hl
 	ld hl,CHGET_COUNT
 	ld a,[hl]
-	or a,a
+	or a
 	jr z,skip_chget_count
 	dec [hl]
 skip_chget_count:
 
 	ld hl,WAIT_COUNT
 	ld a,[hl]
-	or a,a
+	or a
 	jr z,skip_wait_count
 	dec [hl]
 skip_wait_count:
 	inc hl ; BGM_COUNT
 	ld a,[hl]
-	or a,a
+	or a
 	jp z,skip_bgm_count
 	dec a
 	ld [hl],a
@@ -84,13 +84,13 @@ skip_wait_count:
 next_bgm_command:
 	ld a,[bc]
 	inc bc
-	cp a,0xf0
+	cp 0xf0
 	jr c,bgm_keyon ;00-ef
 	jr z,bgm_set_tempo ;0xf0
-	cp a,0xf2
+	cp 0xf2
 	jr c,bgm_set_volume ;0xf1
 	jr z,bgm_set_envelope ;0xf2
-	cp a,0xf4
+	cp 0xf4
 	jr c,bgm_set_main ;0xf3
 	;0xf4 bgm off
 	ld e,0
@@ -128,7 +128,7 @@ bgm_set_envelope:
 bgm_keyon:
 	;00-ef
 	ld d,a
-	and a,0x0f
+	and 0x0f
 	jr nz,bgm_keyon_1
 	;休符
 	ld e,0
@@ -138,7 +138,7 @@ bgm_keyon_1:
 	add a,l
 	ld l,a
 	ld e,[hl]
-	xor a,a
+	xor a
 	call BIOS_WRTPSG ;音階を指定
 	ld a,13
 	ld e,8
@@ -153,11 +153,11 @@ bgm_keyon_2:
 	inc hl
 	ld e,[hl]
 	ld a,d
-	and a,0xf0
+	and 0xf0
 	jr z,set_bgm_count
 bgm_tempo_double:
 	sla e
-	sub a,0x10
+	sub 0x10
 	jr nz,bgm_tempo_double
 set_bgm_count:
 	dec hl
@@ -202,7 +202,7 @@ skip_write_map:
 	pop hl
 skip_write_status:
 	ld a,[hl]
-	and a,0x0f ;GAME_CONTROLLER_WRITE_BITからGAME_CONTROLLER_STATUS_BITをクリア
+	and 0x0f ;GAME_CONTROLLER_WRITE_BITからGAME_CONTROLLER_STATUS_BITをクリア
 	ld [hl],a
 
 skip_write_vram:
@@ -228,7 +228,7 @@ PUT_SPRITE::
 	ld b,3
 	otir
 	ld a,[PLAYER_DAMAGE_COUNT]
-	or a,a
+	or a
 	ld a,7
 	jr z,skip_player_damage
 	inc a
@@ -255,7 +255,7 @@ skip_player_damage:
 	add a,0x10 ;剣のX座標はプレイヤーが左右どちらに向いていてもプレイヤー+16
 	out [c],a
 	ld a,[hl]
-	and a,4   ;[PLAYER_SPRITE]　and 4　が0なら右 1なら左
+	and 4   ;[PLAYER_SPRITE]　and 4　が0なら右 1なら左
 	ld de,0x0000
 	jr z,right
 	ld de,0x8004
@@ -275,7 +275,7 @@ right:
 	jr nz,put_sword_color ;剣を持っていると剣の色S2=10
 	ld a,15
 put_sword_color:
-	or a,d
+	or d
 	out [c],a ;画面端で剣を出した際に表示されるように左向きの場合、カラーコードのbit7をセットする
 
 skip_sword:
@@ -286,14 +286,14 @@ put_enemy:
 	ld e,ENEMY_SIZE-1-3-1 ;hpが0でない場合にhlに加算する値
 	ld a,[hl]
 	inc hl
-	or a,a
+	or a
 	jr z,skip_enemy
 	ld a,[hl]
 	inc hl
 	ld b,3
 	otir
 	ld b,[hl]
-	or a,a
+	or a
 	jr z,skip_enemy_damage
 	ld b,8
 skip_enemy_damage:

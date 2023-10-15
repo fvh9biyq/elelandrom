@@ -29,14 +29,14 @@ SYSTEM_INIT::
 
 SCOPE FONT_ZERO_FULL
 	;画面を0で埋める
-	xor a,a
+	xor a
 	ld [WORK_CLIKSW],a ;キークリックスイッチもOFFにしておく
 
 	ld hl,0x1800
 	ld bc,VIEW_CODE_AREA_WIDTH*VIEW_CODE_AREA_HEIGHT
 	call BIOS_FILVRM
 	; 空欄をVRAMに転送
-	xor a,a
+	xor a
 	ld bc,256*8*3
 	ld hl,0
 	call BIOS_FILVRM
@@ -58,13 +58,13 @@ SCOPE BOLD_FONT
 font_loop:
 	ld a,[hl]
 	rrca
-	or a,[hl]
+	or [hl]
 	ld [de],a
 	inc hl
 	inc de
 	dec bc
 	ld a,c
-	or a,b
+	or b
 	jr nz,font_loop
 
 	;VRAMに転送
@@ -105,7 +105,7 @@ ENDSCOPE ; SET_CHAR
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SCOPE CLEAR_SPRITE
 	ld hl,FREE_AREA+3
-	xor a,a
+	xor a
 	ld [hl],a ;+3
 	dec hl
 	ld [hl],a ;+2
@@ -146,7 +146,7 @@ reverse:
 	pop bc
 	dec bc
 	ld a,b
-	or a,c
+	or c
 	jr nz,loop
 
 	ld b,(SPRITE_END-SPRITE_START)/32
@@ -170,7 +170,7 @@ loop2:
 	add a,e
 	ld e,a
 	adc a,d
-	sub a,e
+	sub e
 	ld d,a
 
 	;hl=hl+a
@@ -178,7 +178,7 @@ loop2:
 	add a,l
 	ld l,a
 	adc a,h
-	sub a,l
+	sub l
 	ld h,a
 
 	pop bc
@@ -204,7 +204,7 @@ loop_a1:
 	add a,e
 	ld e,a
 	adc a,d
-	sub a,e
+	sub e
 	ld d,a
 
 	;hl=hl+a
@@ -212,7 +212,7 @@ loop_a1:
 	add a,l
 	ld l,a
 	adc a,h
-	sub a,l
+	sub l
 	ld h,a
 
 	pop bc
@@ -249,13 +249,13 @@ ENDSCOPE ; SET_SPRITE
 	ld a,9
 	call BIOS_WRTPSG
 	;bgm初期化
-	xor a,a
+	xor a
 	ld [BGM_COUNT],a
 
 	;画面の表示
 	;スプライト
 	ld a,[MSXWORK_RG1SAV]
-	or a,0x62
+	or 0x62
 	; 00000000
 	; .x...... 0:画面表示OFF 1:画面表示ON
 	; ..x..... 1=垂直割り込み有効, 0=無効

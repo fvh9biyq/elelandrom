@@ -5,7 +5,7 @@ DEBUG_FONT_FULL MACRO
 SCOPE DEBUG_FONT_FULL
 	ld hl,FREE_AREA
 	ld b,3
-	xor a,a
+	xor a
 loop:
 	ld [hl],a
 	inc hl
@@ -27,7 +27,7 @@ ENDM
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 DEBUG_FONT_ZERO_FULL MACRO
 SCOPE DEBUG_FONT_ZERO_FULL
-	xor a,a
+	xor a
 	ld hl,0x1800
 	ld bc,VIEW_CODE_AREA_WIDTH*VIEW_CODE_AREA_HEIGHT
 	call BIOS_FILVRM
@@ -44,14 +44,14 @@ SCOPE DEBUG_SPRITE
 	ld bc,22*256
 loop:
 	ld a,c
-	and a,0xfc
+	and 0xfc
 	add a,a
 	add a,a
 	dec a
 	ld [hl],a
 	inc hl
 	ld a,c
-	and a,0x03
+	and 0x03
 	rlca
 	rlca
 	rlca

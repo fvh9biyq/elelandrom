@@ -12,7 +12,7 @@ EVENT_PASSWORD::
 	ld hl,VIEW_CODE_AREA+0+23*VIEW_CODE_AREA_WIDTH
 	ld de,PLAYER_LEVEL
 	ld a,[de]
-	cp a,99
+	cp 99
 	jr nz,not_max_level
 	ld a,10
 not_max_level:
@@ -56,8 +56,8 @@ ENDSCOPE ;EVENT_PASSWORD
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SCOPE PUT_HEX4
 PUT_HEX4::
-	and a,0x0f
-	cp a,10
+	and 0x0f
+	cp 10
 	sbc a,0x69
 	daa
 	ld [hl],a
@@ -97,21 +97,21 @@ debug_code_next:
 	push de
 	ld a,[hl]
 	inc hl
-	or a,a
+	or a
 	jr z,debug_code_skip
 	ld c,a
 	ld b,a
 debug_code_loop:
 	ld a,[de]
 	inc de
-	cp a,[hl]
+	cp [hl]
 	inc hl
 	jr nz,debug_code_mismatch
 	dec c
 debug_code_mismatch:
 	djnz debug_code_loop
 	ld a,c
-	or a,a
+	or a
 	jr z,debug_code_match
 	inc hl
 	inc hl
@@ -145,10 +145,10 @@ debug_code_skip:
 loop:
 	ld a,[hl]
 	inc hl
-	cp a,0x32 ;キャラクターコードが'1'より上ならNG
+	cp 0x32 ;キャラクターコードが'1'より上ならNG
 	ccf
 	ret c
-	cp a,0x30 ;キャラクターコードが'0'より下ならNG
+	cp 0x30 ;キャラクターコードが'0'より下ならNG
 	ret c
 	jr z,not_set_item ;キャラクターコードが'1'ならアイテムフラグON
 	inc c
@@ -165,16 +165,16 @@ not_set_item:
 
 debug_code_map:
 	ld a,[de]
-	sub a,'A'
-	cp a,12
+	sub 'A'
+	cp 12
 	jr nc,debug_code_fail
 	ld [MAP_ID],a
 	jr debug_code_success
 
 debug_wait:
 	ld a,[de]
-	sub a,'0'
-	cp a,10
+	sub '0'
+	cp 10
 	jr nc,debug_code_fail
 	ld [GAME_SPEED],a
 	jr debug_code_success
@@ -255,14 +255,14 @@ SCOPE HEXTOBIN
 HEXTOBIN::
 	ld a,[hl]
 	inc hl
-	sub a,0x30 ;キャラクターコードが'0'より下ならNG
+	sub 0x30 ;キャラクターコードが'0'より下ならNG
 	ret c
-	cp a,10
+	cp 10
 	ccf
 	ret nc     ;キャラクターコードが'0'から'9'ならその値を返す
 	add a,0x100-0x47+0x30  ;キャラクターコードが'G'以上ならNG
 	ret c
-	sub a,-6
+	sub -6
 	ret c
 	add a,10
 	ret
@@ -286,7 +286,7 @@ HEXTOBIN2::
 	ld b,a
 	call HEXTOBIN
 	ret c
-	or a,b
+	or b
 	ret
 ENDSCOPE; HEXTOBIN2
 
